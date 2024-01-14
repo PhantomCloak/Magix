@@ -1,15 +1,17 @@
-
-public static class InstanceManager
+namespace Magix
 {
-    private static ICloudResourceAPI m_ResourceAPI;
-    public static ICloudResourceAPI ResourceAPI
+    public static class InstanceManager
     {
-        get
+        private static ICloudResourceAPI m_ResourceAPI;
+        public static ICloudResourceAPI ResourceAPI
         {
-            if (m_ResourceAPI == null)
-                return new CloudApi();
-            return m_ResourceAPI;
+            get
+            {
+                if (m_ResourceAPI == null)
+                    return new CloudApiWrapper();
+                return m_ResourceAPI;
+            }
+            set => m_ResourceAPI = value;
         }
-        set => m_ResourceAPI = value;
     }
 }

@@ -66,7 +66,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
 
         foreach (var field in type.Fields)
         {
-            if (field.FieldType.FullName == "CloudScriptableObject")
+            if (field.FieldType.FullName == "Magix.CloudScriptableObject")
             {
                 fields.Add(field);
             }
@@ -77,7 +77,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                     var fieldType = field.FieldType.Resolve();
                     while (fieldType != null)
                     {
-                        if (fieldType.FullName == "CloudScriptableObject")
+                        if (fieldType.FullName == "Magix.CloudScriptableObject")
                         {
                             fields.Add(field);
                             break;
@@ -148,16 +148,15 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                     if (!IsAssignableFromMonoBehaviour(type))
                         continue;
 
+
                     var targetFields = GetFieldsInheritingFromCloudScriptableObject(type);
 
-                    if (targetFields.Count <= 0)
+                    if (targetFields?.Count <= 0)
                         continue;
 
                     var awakeMethod = type.Methods.FirstOrDefault(x => x.Name == "Awake");
                     var hookClass = asmDef.MainModule.Types.FirstOrDefault(t => t.FullName == "Magix.CloudResourceHook");
-
                     var loadRMethod = hookClass?.Methods.FirstOrDefault(m => m.Name == "LoadResource" && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.Object");
-
                     var loadRMethodRef = asmDef.MainModule.ImportReference(loadRMethod);
 
                     if (awakeMethod == null)
