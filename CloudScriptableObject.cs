@@ -39,10 +39,6 @@ namespace Magix
             TextAsset textFile = Resources.Load<TextAsset>("editor_id");
             InstanceManager.ResourceAPI.GetAllEntriesUser(InstanceManager.ResourceAPI.EditorUserId, (succ, res) =>
             {
-                foreach (var item in res)
-                {
-                    Debug.Log("DEBUG: " + item.Key);
-                }
                 CloudScriptableObject.PreloadedCloudResourceJsons = res
                     .Where(obj => obj.Key.StartsWith("Production") || obj.Key.StartsWith("Development"))
                     .ToDictionary(obj => obj.Key, obj => obj.Value);
@@ -51,7 +47,7 @@ namespace Magix
             });
         }
 
-        internal void InitializeResource(Action<bool> success, string environmentPrefix)
+        internal void InitializeResource(Action<bool> success, Environment environment)
         {
             if (IsInitInProgress)
             {
@@ -60,10 +56,8 @@ namespace Magix
 
             IsInitInProgress = true;
 
-            //Logger.LogVerbose("Checking resource if it present...");
-            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId, environmentPrefix + "res-" + this.name, (suc, exist) =>
+            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId, MagixUtils.GetFullName(this, environment), (suc, exist) =>
             {
-                //Logger.LogVerbose("Resource status in the cloud sucess: " + suc + " exist: " + exist);
                 IsInit = true;
                 IsInitInProgress = false;
 

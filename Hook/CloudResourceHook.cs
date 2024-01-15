@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Linq;
 using UnityEngine;
 
 namespace Magix
@@ -10,20 +11,6 @@ namespace Magix
             if (obj == null)
                 return null;
 
-            var targetObject = (CloudScriptableObject)obj;
-
-            var result = Resources.Load(targetObject.name);
-
-            string prefix = "";
-#if DEVELOPMENT_BUILD
-			prefix = "Development-";
-#else
-            prefix = "Production-";
-#endif
-
-            JsonUtility.FromJsonOverwrite(CloudScriptableObject.PreloadedCloudResourceJsons[prefix + "res-" + targetObject.name], result);
-
-			//
 			FillChildResource((CloudScriptableObject)obj);
 
             return obj;
@@ -34,13 +21,15 @@ namespace Magix
             if (obj == null)
                 return;
 
-            string prefix = "";
-#if DEVELOPMENT_BUILD
-			prefix = "Development-";
-#else
-            prefix = "Production-";
-#endif
-            JsonUtility.FromJsonOverwrite(CloudScriptableObject.PreloadedCloudResourceJsons[prefix + "res-" + obj.name], obj);
+			var searchKey = CloudScriptableObject.PreloadedCloudResourceJsons.FirstOrDefault(x=> x.Key.EndsWith(obj.name)).Key;
+
+			if(searchKey == null)
+			{
+				Debug.Log("Cannot find entry: " + searchKey);
+				return;
+			}
+
+            JsonUtility.FromJsonOverwrite(CloudScriptableObject.PreloadedCloudResourceJsons[searchKey], obj);
 
 
             FieldInfo[] fields = obj.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);

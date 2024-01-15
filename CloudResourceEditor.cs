@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Magix
 {
-    enum Environment
+    public enum Environment
     {
         Production,
         Development
@@ -60,7 +60,7 @@ namespace Magix
                     //    Logger.LogError("An error occured while loading resource from cloud");
 
                     repaintRequested = true;
-                }, GetCurrentPrefix());
+                }, GetCurrentEnvironment());
 
                 return true;
             }
@@ -86,19 +86,6 @@ namespace Magix
             return false;
         }
 
-        private void OnRename()
-        {
-            //foreach (var env in MagixConfig.Environments)
-            //{
-            //    InstanceManager.ResourceAPI.DeleteVariableCloud(env + "-res-" + previousName, (success, msg) =>
-            //    {
-            //        Logger.LogVerbose("Cloud resource deleted successfully");
-            //    });
-            //}
-
-            //PushChanges((CloudScriptableObject)target);
-        }
-
         public override void OnInspectorGUI()
         {
             if (Application.isPlaying)
@@ -107,17 +94,6 @@ namespace Magix
                 base.OnInspectorGUI();
                 return;
             }
-            //if (string.IsNullOrEmpty(previousName))
-            //{
-            //    previousName = target.name;
-            //}
-
-            //if (target.name != previousName)
-            //{
-            //    Debug.Log("Name has changed from: " + previousName + " to " + target.name);
-            //    OnRename();
-            //    previousName = target.name;
-            //}
 
             if (InstanceManager.ResourceAPI == null)
             {
@@ -158,7 +134,7 @@ namespace Magix
                 {
                     targetResource.IsInitInProgress = true;
                     var originalPrototype = Activator.CreateInstance(target.GetType());
-                    InstanceManager.ResourceAPI.GetVariableCloudJson(GetCurrentPrefix() + "res-" + target.name, target.GetType(), (success, message, obj) =>
+                    InstanceManager.ResourceAPI.GetVariableCloudJson(MagixUtils.GetFullName((CloudScriptableObject)target, GetCurrentEnvironment()), target.GetType(), (success, message, obj) =>
                     {
                         if (!success)
                         {
@@ -195,7 +171,7 @@ namespace Magix
                 {
                     string prefix = GetPrefix(option);
                     // Add rollback if one or more of the upload fails
-                    InstanceManager.ResourceAPI.SetVariableCloud(prefix + "res-" + target.name, target, (success, message) =>
+                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), target, (success, message) =>
                     {
                         if (!success)
                         {
@@ -348,7 +324,7 @@ namespace Magix
                         return;
                     }
 
-                    InstanceManager.ResourceAPI.SetVariableCloud(GetCurrentPrefix() + "res-" + targetResource.name, targetResource, (success, message) =>
+                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), targetResource, (success, message) =>
                     {
                         if (success)
                         {
@@ -371,8 +347,7 @@ namespace Magix
         private void GetOriginalResource(CloudScriptableObject targetResource, Action<object> callback)
         {
             var originalPrototype = Activator.CreateInstance(targetResource.GetType());
-            var targetName = GetCurrentPrefix() + "res-" + targetResource.name;
-            InstanceManager.ResourceAPI.GetVariableCloudJson(targetName, targetResource.GetType(), (success, message, obj) =>
+            InstanceManager.ResourceAPI.GetVariableCloudJson(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), targetResource.GetType(), (success, message, obj) =>
             {
                 if (!success)
                 {
@@ -730,6 +705,11 @@ namespace Magix
         {
             return environmentOptions[selectedEnvironmentIndex] + "-";
         }
+
+		private Environment GetCurrentEnvironment()
+		{
+			return (Environment)Enum.Parse(typeof(Environment), environmentOptions[selectedEnvironmentIndex]);
+		}
 
         private string GetPrefix(string str)
         {
