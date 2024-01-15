@@ -46,6 +46,7 @@ namespace Magix
                 handle.Invoke(true, string.Empty);
             });
         }
+#if UNITY_EDITOR
 
         internal void InitializeResource(Action<bool> success, Environment environment)
         {
@@ -71,5 +72,6 @@ namespace Magix
                 success.Invoke(true);
             });
         }
+#endif
     }
 }

@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using System.Linq;
 using UnityEngine.SceneManagement;
@@ -65,3 +66,4 @@ namespace Magix
         }
     }
 }
+#endif
