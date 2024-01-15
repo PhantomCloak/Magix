@@ -18,6 +18,8 @@ public static class SerializedPropertyExtensions
                 break;
             case SerializedPropertyType.Enum:
                 break;
+            case SerializedPropertyType.Color:
+                break;
             default:
                 return false;
         }
@@ -44,6 +46,9 @@ public static class SerializedPropertyExtensions
             case SerializedPropertyType.Enum:
                 property.enumValueIndex = (int)value;
                 break;
+            case SerializedPropertyType.Color:
+                property.colorValue = (Color)value;
+                break;
             default:
                 Debug.LogError("Type not implemented for: " + property.propertyType);
                 break;
@@ -66,6 +71,8 @@ public static class SerializedPropertyExtensions
                 return property.stringValue;
             case SerializedPropertyType.Enum:
                 return property.enumValueIndex;
+            case SerializedPropertyType.Color:
+                return property.colorValue;
             default:
                 Debug.Log("Type not implemented for: " + property.propertyType);
                 return null;

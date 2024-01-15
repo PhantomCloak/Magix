@@ -492,7 +492,7 @@ namespace Magix
         private void AttachContextMenu(Rect position, SerializedProperty property, object revertValue)
         {
             Event currentEvent = Event.current;
-            if (currentEvent.type == EventType.MouseDown && position.Contains(currentEvent.mousePosition))
+            if (currentEvent.type == EventType.MouseDown && currentEvent.button == 1 && position.Contains(currentEvent.mousePosition))
             {
                 GenericMenu menu = new GenericMenu();
                 menu.AddItem(new GUIContent("Copy"), false, () => GUIUtility.systemCopyBuffer = property.GetValue().ToString());
