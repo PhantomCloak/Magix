@@ -47,7 +47,7 @@ public static class Logger
             return;
         }
 
-        Debug.Log($"[LOG WARN {GetTime()}]:" + message);
+        Debug.LogWarning($"[LOG WARN {GetTime()}]:" + message);
     }
 
     public static void LogError(string message)
