@@ -164,14 +164,13 @@ namespace Magix
 
         private bool RenderControls(CloudScriptableObject targetResource)
         {
-            if (GUILayout.Button("Upload Resource To Cloud"))
+            if (GUILayout.Button("Upload"))
             {
                 int callbackCount = 0;
                 foreach (var option in environmentOptions)
                 {
-                    string prefix = GetPrefix(option);
                     // Add rollback if one or more of the upload fails
-                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), target, (success, message) =>
+                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, (Environment)Enum.Parse(typeof(Environment), option)), target, (success, message) =>
                     {
                         if (!success)
                         {
@@ -197,7 +196,7 @@ namespace Magix
         private bool RenderResourceSyncOptions(CloudScriptableObject targetResource)
         {
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Fetch from cloud"))
+            if (GUILayout.Button("Refresh"))
             {
                 if (targetResource.IsInitInProgress)
                     return false;
@@ -701,15 +700,10 @@ namespace Magix
             return enm.Current;
         }
 
-        private string GetCurrentPrefix()
+        private Environment GetCurrentEnvironment()
         {
-            return environmentOptions[selectedEnvironmentIndex] + "-";
+            return (Environment)Enum.Parse(typeof(Environment), environmentOptions[selectedEnvironmentIndex]);
         }
-
-		private Environment GetCurrentEnvironment()
-		{
-			return (Environment)Enum.Parse(typeof(Environment), environmentOptions[selectedEnvironmentIndex]);
-		}
 
         private string GetPrefix(string str)
         {

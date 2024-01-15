@@ -11,7 +11,7 @@ namespace Magix
             if (obj == null)
                 return null;
 
-			FillChildResource((CloudScriptableObject)obj);
+            FillChildResource((CloudScriptableObject)obj);
 
             return obj;
         }
@@ -21,13 +21,13 @@ namespace Magix
             if (obj == null)
                 return;
 
-			var searchKey = CloudScriptableObject.PreloadedCloudResourceJsons.FirstOrDefault(x=> x.Key.EndsWith(obj.name)).Key;
+            var searchKey = CloudScriptableObject.PreloadedCloudResourceJsons.FirstOrDefault(x => x.Key.EndsWith(obj.name)).Key;
 
-			if(searchKey == null)
-			{
-				Debug.Log("Cannot find entry: " + searchKey);
-				return;
-			}
+            if (searchKey == null)
+            {
+                Debug.Log("Cannot find entry: " + searchKey);
+                return;
+            }
 
             JsonUtility.FromJsonOverwrite(CloudScriptableObject.PreloadedCloudResourceJsons[searchKey], obj);
 
