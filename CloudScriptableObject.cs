@@ -37,7 +37,7 @@ namespace Magix
         {
             var handle = ThreadContextManager.GetSynchronizeCallbackHandler(callback);
             TextAsset textFile = Resources.Load<TextAsset>("editor_id");
-            InstanceManager.ResourceAPI.GetAllEntriesUser("5e0d7c88-e14a-4824-8fa4-114bf74ef3ac", (succ, res) =>
+            InstanceManager.ResourceAPI.GetAllEntriesUser(InstanceManager.ResourceAPI.EditorUserId, (succ, res) =>
             {
                 foreach (var item in res)
                 {
@@ -61,7 +61,7 @@ namespace Magix
             IsInitInProgress = true;
 
             //Logger.LogVerbose("Checking resource if it present...");
-            InstanceManager.ResourceAPI.CheckVariableIsExist(environmentPrefix + "res-" + this.name, (suc, exist) =>
+            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId, environmentPrefix + "res-" + this.name, (suc, exist) =>
             {
                 //Logger.LogVerbose("Resource status in the cloud sucess: " + suc + " exist: " + exist);
                 IsInit = true;

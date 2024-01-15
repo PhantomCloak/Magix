@@ -101,6 +101,12 @@ namespace Magix
 
         public override void OnInspectorGUI()
         {
+            if (Application.isPlaying)
+            {
+                GUILayout.Label("Controls are turned off in play mode");
+                base.OnInspectorGUI();
+                return;
+            }
             //if (string.IsNullOrEmpty(previousName))
             //{
             //    previousName = target.name;
@@ -392,10 +398,6 @@ namespace Magix
 
             list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
              {
-                 if (!x.IsInit || x.IsInitInProgress || !x.IsInit)
-                 {
-                     Debug.Log("WE FUCKED UP HARD");
-                 }
                  SerializedProperty element = list.serializedProperty.GetArrayElementAtIndex(index);
 
                  rect.y += 2;
@@ -412,54 +414,46 @@ namespace Magix
                      element, GUIContent.none, true
                  );
 
+                 SerializedProperty last = element;
                  SerializedProperty current = element;
                  SerializedProperty end = current.GetEndProperty();
 
-                 while (current.NextVisible(current.isExpanded) && !SerializedProperty.EqualContents(current, end))
+                 if (x.IsExist)
                  {
-                     if (current.IsTypePrimitive())
+                     float tippingPoint = float.MaxValue;
+                     while (current.NextVisible(current.isExpanded) && !SerializedProperty.EqualContents(current, end))
                      {
-                         if (!IsPropertyPresentInRemote(current))
+                         if (tippingPoint < elementStartPosY)
                          {
-                             DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.red);
-                         }
-                         else if (IsPropertyifferentThanOriginal(current, out var originalValue))
-                         {
-                             DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.green);
-                             AttachContextMenu(new Rect(rect.x - 5, elementStartPosY + 1, rect.width, EditorGUI.GetPropertyHeight(current, true) - 2), current.Copy(), originalValue);
-                         }
-                     }
-                     else
-                     {
-                         // Get Instance_ID of non-primitive object 
-                         var currentObject = GetTargetObjectOfProperty(current, serializedObject.targetObject);
-                         int currentInstanceId = 0;
-                         if (currentObject is UnityEngine.Object currentUnityObject)
-                         {
-                             currentInstanceId = currentUnityObject.GetInstanceID();
+                             elementStartPosY += 25;
+                             tippingPoint = float.MaxValue;
                          }
 
-                         var orig = ((CloudScriptableObject)target).Original;
-                         if (orig != null)
+                         if (current.IsTypePrimitive())
                          {
-                             var originalObj = GetTargetObjectOfProperty(current, orig);
-                             int originalInstanceId = 0;
-
-                             if (originalObj is UnityEngine.Object unityObject)
+                             if (!IsPropertyPresentInRemote(current))
                              {
-                                 originalInstanceId = unityObject.GetInstanceID();
+                                 DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.red);
                              }
-
-                             // Compare currentInstanceId with originalInstanceId
-                             if (originalInstanceId != 0 && currentInstanceId != originalInstanceId)
+                             else if (IsPropertyifferentThanOriginal(current, out var originalValue))
                              {
-                                 DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.yellow);
+                                 DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.green);
+                                 AttachContextMenu(new Rect(rect.x - 5, elementStartPosY + 1, rect.width, EditorGUI.GetPropertyHeight(current, true) - 2), current.Copy(), originalValue);
                              }
                          }
-                     }
 
-                     elementStartPosY += (current.hasChildren ? EditorGUIUtility.singleLineHeight : EditorGUI.GetPropertyHeight(current, true)) + EditorGUIUtility.standardVerticalSpacing;
+                         if (current.isArray && current.isExpanded)
+                         {
+                             elementStartPosY += 6;
+                             tippingPoint = elementStartPosY + EditorGUI.GetPropertyHeight(current, true) - EditorGUIUtility.singleLineHeight;
+                         }
+                         else
+                             elementStartPosY += (current.hasChildren ? EditorGUIUtility.singleLineHeight : EditorGUI.GetPropertyHeight(current, true)) + EditorGUIUtility.standardVerticalSpacing;
+
+                         last = current.Copy();
+                     }
                  }
+
              };
 
             list.elementHeightCallback = (int index) =>

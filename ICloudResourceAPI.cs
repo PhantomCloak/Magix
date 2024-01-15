@@ -12,7 +12,7 @@ namespace Magix
         public string EditorUserId { get; }
 
         // Success, Result
-        public void CheckVariableIsExist(string resourceName, Action<bool, bool> callback);
+        public void CheckVariableIsExist(string userId, string resourceName, Action<bool, bool> callback);
         // Success, ErrorMessage, Result
         public void GetVariableCloudJson(string variableName, Type type, Action<bool, string, string> onCompleteCallback);
         // Success, ErrorMessage, Result
