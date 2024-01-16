@@ -223,7 +223,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                         continue;
 
                     var awakeMethod = type.Methods.FirstOrDefault(x => x.Name == "Awake");
-                    var hookClass = asmDef.MainModule.Types.FirstOrDefault(t => t.FullName == "Magix.CloudResourceHook");
+                    var hookClass = asmDef.MainModule.Types.FirstOrDefault(t => t.FullName == "Magix.CloudScriptableObjectHook");
                     var loadRMethod = hookClass?.Methods.FirstOrDefault(m => m.Name == "LoadResource" && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.Object");
                     var loadRMethodRef = asmDef.MainModule.ImportReference(loadRMethod);
 
