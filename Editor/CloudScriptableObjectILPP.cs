@@ -25,6 +25,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
         return asmDef.MainModule.ImportReference(loadMethodInfo);
     }
 
+
     void Patch(MethodDefinition targetMethod, List<FieldDefinition> fieldsToPatch, MethodDefinition hook)
     {
         var ilProcessor = targetMethod.Body.GetILProcessor();
@@ -124,6 +125,54 @@ public class CloudScriptableObjectILPP : ILPostProcessor
     }
 
 
+    private CustomAttribute CreateAssetPathDescriptorAttribute(AssemblyDefinition asmDef, string path)
+    {
+        var descriptorType = asmDef.MainModule.GetType("Magix.AssetPathDescriptor");
+        if (descriptorType == null)
+        {
+            throw new InvalidOperationException("AssetPathDescriptor type not found.");
+        }
+
+        // Find the constructor that takes a string parameter
+        var constructor = descriptorType.Methods.First(
+            method => method.IsConstructor && method.Parameters.Count == 1 && method.Parameters[0].ParameterType.FullName == "System.String"
+        );
+
+        // Create a reference to the constructor
+        var constructorRef = asmDef.MainModule.ImportReference(constructor);
+
+        // Create an instance of the CustomAttribute
+        var attribute = new CustomAttribute(constructorRef);
+
+        // Add the constructor argument (path)
+        attribute.ConstructorArguments.Add(new CustomAttributeArgument(asmDef.MainModule.TypeSystem.String, path));
+
+        return attribute;
+    }
+
+    private string GetAssetPathThroughReflection(UnityEngine.Object asset)
+    {
+        // Load the UnityEditor assembly
+        Assembly unityEditorAssembly = Assembly.Load("UnityEditor");
+
+        // Get the type of UnityEditor.AssetDatabase
+        Type assetDatabaseType = unityEditorAssembly.GetType("UnityEditor.AssetDatabase");
+
+        // Get the MethodInfo for the GetAssetPath method
+        MethodInfo getAssetPathMethodInfo = assetDatabaseType
+            .GetMethod("GetAssetPath", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(UnityEngine.Object) }, null);
+
+        if (getAssetPathMethodInfo == null)
+        {
+            throw new InvalidOperationException("GetAssetPath method not found in UnityEditor.AssetDatabase.");
+        }
+
+        // Invoke the GetAssetPath method
+        string assetPath = (string)getAssetPathMethodInfo.Invoke(null, new object[] { asset });
+
+        return assetPath;
+    }
+
     public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
     {
         bool modified = false;
@@ -149,7 +198,26 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                         continue;
 
 
+                    Log.LogDiagnostics("HEAD");
+                    Log.SaveLogsToFile("hello.txt");
                     var targetFields = GetFieldsInheritingFromCloudScriptableObject(type);
+
+                    // Patch fields
+                    //foreach (var field in targetFields)
+                    //{
+
+                    //    Log.LogDiagnostics("WE FOUND FIELD ITERATING....." + field.FullName);
+                    //    Log.LogDiagnostics("EXIST: " + field.CustomAttributes?.Count());
+                    //    Log.LogDiagnostics("DEMON: " + field.CustomAttributes.FirstOrDefault()?.AttributeType?.FullName);
+                    //    Log.SaveLogsToFile("hello.txt");
+
+                    //    if (field.CustomAttributes.Count() <= 0)
+                    //    {
+                    //        // Field is guaranteed is an scriptable object
+                    //        var path = GetMethodReference01(asmDef).ToString()
+                    //        field.CustomAttributes.Add(CreateAssetPathDescriptorAttribute(asmDef, path));
+                    //    }
+                    //}
 
                     if (targetFields?.Count <= 0)
                         continue;

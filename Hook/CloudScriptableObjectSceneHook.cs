@@ -8,7 +8,7 @@ using System;
 
 namespace Magix
 {
-    public static class CloudResourceSceneHook
+    public static class CloudScriptableObjectSceneHook
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         public static void OnBootHook()

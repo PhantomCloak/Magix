@@ -4,8 +4,9 @@ using UnityEngine;
 
 namespace Magix
 {
-    public class CloudResourceHook
+    public class CloudScriptableObjectHook
     {
+
         public static object LoadResource(object obj)
         {
             if (obj == null)

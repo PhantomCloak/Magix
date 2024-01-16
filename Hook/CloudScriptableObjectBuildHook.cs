@@ -7,7 +7,7 @@ using System.IO;
 
 namespace Magix
 {
-    public class CloudResourceBuildHook : IPreprocessBuildWithReport
+    public class CloudScriptableObjectBuildHook : IPreprocessBuildWithReport
     {
         public int callbackOrder { get { return 0; } }
 
