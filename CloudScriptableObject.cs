@@ -46,8 +46,8 @@ namespace Magix
                 handle.Invoke(true, string.Empty);
             });
         }
-#if UNITY_EDITOR
 
+#if UNITY_EDITOR
         internal void InitializeResource(Action<bool> success, Environment environment)
         {
             if (IsInitInProgress)
@@ -57,7 +57,9 @@ namespace Magix
 
             IsInitInProgress = true;
 
-            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId, MagixUtils.GetFullName(this, environment), (suc, exist) =>
+            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId,
+                    InstanceManager.Resolver.GetKeyFromObject(this, environment),
+                    (suc, exist) =>
             {
                 IsInit = true;
                 IsInitInProgress = false;

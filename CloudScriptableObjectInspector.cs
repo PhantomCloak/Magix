@@ -56,8 +56,8 @@ namespace Magix
 
                 targetResource.InitializeResource((success) =>
                 {
-                    //if (!success)
-                    //    Logger.LogError("An error occured while loading resource from cloud");
+                    if (!success)
+                        Logger.LogError("An error occured while loading resource from cloud");
 
                     repaintRequested = true;
                 }, GetCurrentEnvironment());
@@ -133,8 +133,12 @@ namespace Magix
                 if (targetResource.Original == null)
                 {
                     targetResource.IsInitInProgress = true;
+
                     var originalPrototype = Activator.CreateInstance(target.GetType());
-                    InstanceManager.ResourceAPI.GetVariableCloudJson(MagixUtils.GetFullName((CloudScriptableObject)target, GetCurrentEnvironment()), target.GetType(), (success, message, obj) =>
+                    InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)target,
+                            GetCurrentEnvironment()),
+                            target.GetType(),
+                            (success, message, obj) =>
                     {
                         if (!success)
                         {
@@ -170,7 +174,10 @@ namespace Magix
                 foreach (var option in environmentOptions)
                 {
                     // Add rollback if one or more of the upload fails
-                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, (Environment)Enum.Parse(typeof(Environment), option)), target, (success, message) =>
+                    InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetResource,
+                            (Environment)Enum.Parse(typeof(Environment), option)),
+                            target,
+                            (success, message) =>
                     {
                         if (!success)
                         {
@@ -323,7 +330,9 @@ namespace Magix
                         return;
                     }
 
-                    InstanceManager.ResourceAPI.SetVariableCloud(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), targetResource, (success, message) =>
+                    InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment()),
+                            targetResource,
+                            (success, message) =>
                     {
                         if (success)
                         {
@@ -346,7 +355,9 @@ namespace Magix
         private void GetOriginalResource(CloudScriptableObject targetResource, Action<object> callback)
         {
             var originalPrototype = Activator.CreateInstance(targetResource.GetType());
-            InstanceManager.ResourceAPI.GetVariableCloudJson(MagixUtils.GetFullName(targetResource, GetCurrentEnvironment()), targetResource.GetType(), (success, message, obj) =>
+            InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment()),
+                    targetResource.GetType(),
+                    (success, message, obj) =>
             {
                 if (!success)
                 {
@@ -360,8 +371,6 @@ namespace Magix
 
         private ReorderableList CreateReorderableList(SerializedProperty property)
         {
-            var x = ((CloudScriptableObject)target);
-
             var list = new ReorderableList(property.serializedObject, property, true, true, true, true);
 
             list.drawHeaderCallback = (Rect rect) =>
@@ -392,7 +401,7 @@ namespace Magix
                  SerializedProperty current = element;
                  SerializedProperty end = current.GetEndProperty();
 
-                 if (x.IsExist)
+                 if (((CloudScriptableObject)target).IsExist)
                  {
                      float tippingPoint = float.MaxValue;
                      while (current.NextVisible(current.isExpanded) && !SerializedProperty.EqualContents(current, end))
@@ -484,47 +493,24 @@ namespace Magix
 
                 if (property.IsTypePrimitive() && IsPropertyifferentThanOriginal(property, out var originalvalue))
                 {
-                    RevertProperty(property, originalvalue);
+					property.SetValue(originalvalue);
                 }
             }
         }
 
-        private void AttachContextMenu(Rect position, SerializedProperty property, object revertValue)
+        private void AttachContextMenu(Rect position, SerializedProperty property, object originalValue)
         {
             Event currentEvent = Event.current;
             if (currentEvent.type == EventType.MouseDown && currentEvent.button == 1 && position.Contains(currentEvent.mousePosition))
             {
                 GenericMenu menu = new GenericMenu();
                 menu.AddItem(new GUIContent("Copy"), false, () => GUIUtility.systemCopyBuffer = property.GetValue().ToString());
-                menu.AddItem(new GUIContent("Revert"), false, () => RevertProperty(property, revertValue));
+                menu.AddItem(new GUIContent("Revert"), false, () => property.SetValue(originalValue));
                 menu.ShowAsContext();
                 currentEvent.Use();
             }
         }
 
-        private void RevertProperty(SerializedProperty property, object originalValue)
-        {
-            if (originalValue == null)
-                return;
-
-            switch (property.propertyType)
-            {
-                case SerializedPropertyType.Integer:
-                    property.intValue = (int)originalValue;
-                    break;
-                case SerializedPropertyType.Boolean:
-                    property.boolValue = (bool)originalValue;
-                    break;
-                case SerializedPropertyType.Float:
-                    property.floatValue = (float)originalValue;
-                    break;
-                case SerializedPropertyType.String:
-                    property.stringValue = (string)originalValue;
-                    break;
-            }
-
-            property.serializedObject.ApplyModifiedProperties();
-        }
 
         void DrawHiglighMark(SerializedProperty field, float x, float y, Color markColor)
         {
@@ -537,21 +523,18 @@ namespace Magix
             var orig = ((CloudScriptableObject)target).Original;
             if (orig == null)
             {
-                // If the original object is null, then the property is not present
                 return false;
             }
 
             var info = GetFieldInfoFromProperty(property);
             if (info == null)
             {
-                // If we couldn't find the FieldInfo, we can't determine if the property is present
                 return false;
             }
 
             var objTargetRoot = GetTargetObjectOfPropertyParent(property, orig);
             if (objTargetRoot == null)
             {
-                // If the target object for the property is null, the property is not present
                 return false;
             }
 

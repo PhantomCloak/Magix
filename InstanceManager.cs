@@ -3,6 +3,8 @@ namespace Magix
     public static class InstanceManager
     {
         private static ICloudResourceAPI m_ResourceAPI;
+        public static ICloudScriptableObjectResolver Resolver => new DefaultCloudScriptableObjectResolverNested();
+
         public static ICloudResourceAPI ResourceAPI
         {
             get

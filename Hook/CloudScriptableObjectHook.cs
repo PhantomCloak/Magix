@@ -1,12 +1,9 @@
 using System.Reflection;
-using System.Linq;
-using UnityEngine;
 
 namespace Magix
 {
     public class CloudScriptableObjectHook
     {
-
         public static object LoadResource(object obj)
         {
             if (obj == null)
@@ -22,16 +19,10 @@ namespace Magix
             if (obj == null)
                 return;
 
-            var searchKey = CloudScriptableObject.PreloadedCloudResourceJsons.FirstOrDefault(x => x.Key.EndsWith(obj.name)).Key;
+            obj = (CloudScriptableObject)InstanceManager.Resolver.Resolve(obj);
 
-            if (searchKey == null)
-            {
-                Debug.Log("Cannot find entry: " + searchKey);
+            if (!InstanceManager.Resolver.IsNestedResolutionSupported)
                 return;
-            }
-
-            JsonUtility.FromJsonOverwrite(CloudScriptableObject.PreloadedCloudResourceJsons[searchKey], obj);
-
 
             FieldInfo[] fields = obj.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
