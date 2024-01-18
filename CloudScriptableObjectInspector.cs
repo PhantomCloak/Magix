@@ -7,7 +7,6 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using Magix.Diagnostics;
 
 namespace Magix
 {
@@ -21,11 +20,12 @@ namespace Magix
     [CanEditMultipleObjects]
     public class CloudResourceEditor : Editor
     {
-        private readonly string[] environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
-        private int selectedEnvironmentIndex = 0;
-        private bool repaintRequested = false;
-        private string previousName = string.Empty;
+        private readonly string[] _environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
+        private int _selectedEnvironmentIndex = 0;
+        private bool _repaintRequested = false;
         private bool IsMultipleSelection => targets.Length > 1;
+        private CloudScriptableObject CloudTarget => (CloudScriptableObject)target;
+        private object CloudOrig => CloudTarget.Original;
 
         private void OnEnable()
         {
@@ -39,10 +39,10 @@ namespace Magix
 
         private void OnEditorUpdate()
         {
-            if (repaintRequested)
+            if (_repaintRequested)
             {
                 Repaint();
-                repaintRequested = false;
+                _repaintRequested = false;
             }
         }
 
@@ -52,7 +52,8 @@ namespace Magix
             {
                 return true;
             }
-            else if (!targetResource.IsInit)
+            
+            if (!targetResource.IsInit)
             {
                 GUILayout.Label("Waiting resource to be ready...");
                 Logger.LogVerbose("Resource trying to initialize...");
@@ -62,7 +63,7 @@ namespace Magix
                     if (!success)
                         Logger.LogError("An error occured while loading resource from cloud");
 
-                    repaintRequested = true;
+                    _repaintRequested = true;
                 }, GetCurrentEnvironment());
 
                 return true;
@@ -110,7 +111,7 @@ namespace Magix
                             ctx++;
                             if (ctx == targets.Length)
                             {
-                                repaintRequested = true;
+                                _repaintRequested = true;
                                 Debug.Log("Upload successfully");
                             }
                         });
@@ -132,39 +133,37 @@ namespace Magix
             if (WaitForLogin())
                 return;
 
-            CloudScriptableObject targetResource = (CloudScriptableObject)target;
-
-            if (WaitResourceInit(targetResource))
+            if (WaitResourceInit(CloudTarget))
                 return;
 
             GUILayout.Space(25);
 
             EditorGUI.BeginChangeCheck();
-            if (targetResource.IsExist)
+            if (CloudTarget.IsExist)
             {
-                if (!IsMultipleSelection && RenderResourceInfo(targetResource))
+                if (!IsMultipleSelection && RenderResourceInfo(CloudTarget))
                 {
                     return;
                 }
-                if (!IsMultipleSelection && RenderResourceSyncOptions(targetResource))
-                {
-                    return;
-                }
-
-                if (targetResource.IsInitInProgress)
+                if (!IsMultipleSelection && RenderResourceSyncOptions(CloudTarget))
                 {
                     return;
                 }
 
-                if (targetResource.Original == null)
+                if (CloudTarget.IsInitInProgress)
                 {
-                    targetResource.IsInitInProgress = true;
+                    return;
+                }
+
+                if (CloudTarget.Original == null)
+                {
+                    CloudTarget.IsInitInProgress = true;
 
                     var originalPrototype = Activator.CreateInstance(target.GetType());
                     InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)target,
                             GetCurrentEnvironment()),
                             target.GetType(),
-                            (success, message, obj) =>
+                            (success, _, obj) =>
                     {
                         if (!success)
                         {
@@ -172,15 +171,15 @@ namespace Magix
                         }
 
                         JsonUtility.FromJsonOverwrite(obj, originalPrototype);
-                        targetResource.Original = originalPrototype;
-                        targetResource.IsInitInProgress = false;
+                        CloudTarget.Original = originalPrototype;
+                        CloudTarget.IsInitInProgress = false;
                     });
                 }
             }
             else
             {
                 if (!IsMultipleSelection)
-                    RenderControls(targetResource);
+                    RenderControls(CloudTarget);
             }
 
             GUILayout.Space(25);
@@ -198,13 +197,13 @@ namespace Magix
             if (GUILayout.Button("Upload"))
             {
                 int callbackCount = 0;
-                foreach (var option in environmentOptions)
+                foreach (var option in _environmentOptions)
                 {
                     // Add rollback if one or more of the upload fails
                     InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetResource,
                             (Environment)Enum.Parse(typeof(Environment), option)),
                             target,
-                            (success, message) =>
+                            (success, _) =>
                     {
                         if (!success)
                         {
@@ -215,11 +214,11 @@ namespace Magix
                         Logger.LogVerbose("Resource successfully uploaded to cloud");
                         callbackCount++;
 
-                        if (callbackCount == environmentOptions.Length)
+                        if (callbackCount == _environmentOptions.Length)
                         {
                             Debug.Log("Tail success");
                             targetResource.IsExist = true;
-                            repaintRequested = true;
+                            _repaintRequested = true;
                         }
                     });
                 }
@@ -243,9 +242,9 @@ namespace Magix
                 return false;
             }
 
-            bool isOnProduction = (Environment)Enum.Parse(typeof(Environment), environmentOptions[selectedEnvironmentIndex]) == Environment.Production;
+            bool isOnProduction = (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]) == Environment.Production;
 
-            GUIStyle buttonTextStyle = new GUIStyle(GUI.skin.button);
+            var buttonTextStyle = new GUIStyle(GUI.skin.button);
             buttonTextStyle.normal.textColor = isOnProduction ? Color.red : Color.white;
 
             if (GUILayout.Button("Push to cloud", buttonTextStyle))
@@ -281,7 +280,7 @@ namespace Magix
             GUILayout.Space(5);
 
             EditorGUI.BeginChangeCheck();
-            selectedEnvironmentIndex = EditorGUILayout.Popup("Environment", selectedEnvironmentIndex, environmentOptions);
+            _selectedEnvironmentIndex = EditorGUILayout.Popup("Environment", _selectedEnvironmentIndex, _environmentOptions);
             bool productionDropdownChanged = EditorGUI.EndChangeCheck();
 
             if (productionDropdownChanged)
@@ -302,7 +301,7 @@ namespace Magix
             {
                 Logger.Log("Pull success");
                 targetResource.IsInitInProgress = false;
-                repaintRequested = true;
+                _repaintRequested = true;
                 ResetResources();
             });
         }
@@ -327,7 +326,7 @@ namespace Magix
 
                         JsonUtility.FromJsonOverwrite(originalJson, target);
 
-                        UnityEditor.AssetDatabase.SaveAssetIfDirty(target);
+                        AssetDatabase.SaveAssetIfDirty(target);
                     }
 
                     ((CloudScriptableObject)target).Original = original;
@@ -373,7 +372,7 @@ namespace Magix
                         targetResource.IsInit = false;
                         targetResource.IsExist = false;
                         targetResource.Original = null;
-                        repaintRequested = true;
+                        _repaintRequested = true;
                     });
                 }
             });
@@ -382,7 +381,7 @@ namespace Magix
         private void UploadResource(CloudScriptableObject targetToUpload, Action onComplete)
         {
             int ctx = 0;
-            foreach (var option in environmentOptions)
+            foreach (var option in _environmentOptions)
             {
                 InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)targetToUpload,
                                                     (Environment)Enum.Parse(typeof(Environment), option)),
@@ -397,10 +396,10 @@ namespace Magix
 
                     Logger.LogVerbose("Resource successfully uploaded to cloud");
 
-                    ((CloudScriptableObject)targetToUpload).IsExist = true;
+                    targetToUpload.IsExist = true;
 
                     ctx++;
-                    if (ctx == environmentOptions.Length)
+                    if (ctx == _environmentOptions.Length)
                         onComplete.Invoke();
                 });
             }
@@ -427,13 +426,12 @@ namespace Magix
         {
             var list = new ReorderableList(property.serializedObject, property, true, true, true, true);
 
-            list.drawHeaderCallback = (Rect rect) =>
+            list.drawHeaderCallback = rect =>
             {
-                string headerLabel = $"{property.displayName} (Size: {property.arraySize})";
-                EditorGUI.LabelField(rect, headerLabel);
+                EditorGUI.LabelField(rect, $"{property.displayName} (Size: {property.arraySize}");
             };
 
-            list.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+            list.drawElementCallback = (rect, index, _, _) =>
              {
                  SerializedProperty element = list.serializedProperty.GetArrayElementAtIndex(index);
 
@@ -451,7 +449,6 @@ namespace Magix
                      element, GUIContent.none, true
                  );
 
-                 SerializedProperty last = element;
                  SerializedProperty current = element;
                  SerializedProperty end = current.GetEndProperty();
 
@@ -472,7 +469,7 @@ namespace Magix
                              {
                                  DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.red);
                              }
-                             else if (IsPropertyifferentThanOriginal(current, out var originalValue))
+                             else if (IsPropertyDifferentThanOriginal(current,CloudOrig , out var originalValue))
                              {
                                  DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.green);
                                  AttachContextMenu(new Rect(rect.x - 5, elementStartPosY + 1, rect.width, EditorGUI.GetPropertyHeight(current, true) - 2), current.Copy(), originalValue);
@@ -486,24 +483,19 @@ namespace Magix
                          }
                          else
                              elementStartPosY += (current.hasChildren ? EditorGUIUtility.singleLineHeight : EditorGUI.GetPropertyHeight(current, true)) + EditorGUIUtility.standardVerticalSpacing;
-
-                         last = current.Copy();
                      }
                  }
 
              };
 
-            list.elementHeightCallback = (int index) =>
-            {
-                return EditorGUI.GetPropertyHeight(list.serializedProperty.GetArrayElementAtIndex(index), true) + 4;
-            };
+            list.elementHeightCallback = index => EditorGUI.GetPropertyHeight(list.serializedProperty.GetArrayElementAtIndex(index), true) + 4;
 
             return list;
         }
 
         private void DrawResource(object targetObject)
         {
-            FieldInfo[] fields = targetObject.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance);
+            var fields = targetObject.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance);
 
             foreach (var field in fields)
             {
@@ -523,7 +515,7 @@ namespace Magix
                 {
                     Rect position = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(property, true));
 
-                    if (property.IsTypePrimitive() && IsPropertyifferentThanOriginal(property, out var originalvalue))
+                    if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property,CloudOrig, out var originalvalue))
                     {
                         DrawHiglighMark(property, position.x, position.y, Color.green);
                         AttachContextMenu(position, property, originalvalue);
@@ -545,7 +537,7 @@ namespace Magix
                 if (property == null)
                     continue;
 
-                if (property.IsTypePrimitive() && IsPropertyifferentThanOriginal(property, out var originalvalue))
+                if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig,out var originalvalue))
                 {
                     property.SetValue(originalvalue);
                 }
@@ -608,10 +600,9 @@ namespace Magix
             return originalValue != null;
         }
 
-        private bool IsPropertyifferentThanOriginal(SerializedProperty property, out object origValue)
+        private static bool IsPropertyDifferentThanOriginal(SerializedProperty property, object orig, out object origValue)
         {
             var info = GetFieldInfoFromProperty(property);
-            var orig = ((CloudScriptableObject)target).Original;
             var objTargetRoot = GetTargetObjectOfPropertyParent(property, orig);
             object originalValue = null;
 
@@ -629,7 +620,7 @@ namespace Magix
             return !System.Object.Equals(originalValue, propValue) && originalValue != null;
         }
 
-        private FieldInfo GetFieldInfoFromProperty(SerializedProperty property)
+        private static FieldInfo GetFieldInfoFromProperty(SerializedProperty property)
         {
             Type objectType = property.serializedObject.targetObject.GetType();
             string propertyPath = property.propertyPath.Replace(".Array.data[", "[");
@@ -675,7 +666,7 @@ namespace Magix
             return fieldInfo;
         }
 
-        private object GetTargetObjectOfProperty(SerializedProperty prop, object obj)
+        private static object GetTargetObjectOfProperty(SerializedProperty prop, object obj)
         {
             if (prop == null) return null;
 
@@ -711,7 +702,7 @@ namespace Magix
             }
         }
 
-        private object GetTargetObjectOfPropertyParent(SerializedProperty prop, object obj)
+        private static object GetTargetObjectOfPropertyParent(SerializedProperty prop, object obj)
         {
             if (prop == null) return null;
 
@@ -735,7 +726,7 @@ namespace Magix
             return obj;
         }
 
-        private object GetValueFromField(object source, string name)
+        private static object GetValueFromField(object source, string name)
         {
             if (source == null) return null;
             var type = source.GetType();
@@ -745,7 +736,7 @@ namespace Magix
             return f.GetValue(source);
         }
 
-        private object GetValueFromIndex(object source, string name, int index)
+        private static object GetValueFromIndex(object source, string name, int index)
         {
             var enumerable = GetValueFromField(source, name) as IEnumerable;
             if (enumerable == null) return null;
@@ -760,7 +751,7 @@ namespace Magix
 
         private Environment GetCurrentEnvironment()
         {
-            return (Environment)Enum.Parse(typeof(Environment), environmentOptions[selectedEnvironmentIndex]);
+            return (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]);
         }
 
         private string GetPrefix(string str)
