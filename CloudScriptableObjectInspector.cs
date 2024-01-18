@@ -426,10 +426,7 @@ namespace Magix
         {
             var list = new ReorderableList(property.serializedObject, property, true, true, true, true);
 
-            list.drawHeaderCallback = rect =>
-            {
-                EditorGUI.LabelField(rect, $"{property.displayName} (Size: {property.arraySize}");
-            };
+            list.drawHeaderCallback = rect => EditorGUI.LabelField(rect, $"{property.displayName} (Size: {property.arraySize}");
 
             list.drawElementCallback = (rect, index, _, _) =>
              {
@@ -452,7 +449,7 @@ namespace Magix
                  SerializedProperty current = element;
                  SerializedProperty end = current.GetEndProperty();
 
-                 if (((CloudScriptableObject)target).IsExist)
+                 if (CloudTarget.IsExist)
                  {
                      float tippingPoint = float.MaxValue;
                      while (current.NextVisible(current.isExpanded) && !SerializedProperty.EqualContents(current, end))
