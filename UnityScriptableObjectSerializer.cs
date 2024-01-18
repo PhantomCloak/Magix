@@ -17,28 +17,21 @@ public class UnityScriptableObjectSerializer : JsonConverter
             return;
         }
 
-        // Serialize using JsonUtility
         string json = JsonUtility.ToJson(scriptableObject);
 
-        // Parse the JSON string with Newtonsoft.Json
         var jObject = JObject.Parse(json);
 
-        // Traverse and remove fields containing 'instanceID'
         RemoveFieldsWithInstanceID(jObject);
 
-        // Write the modified JSON
         jObject.WriteTo(writer);
     }
 
     private void RemoveFieldsWithInstanceID(JToken token)
     {
-        // Collect a list of JTokens to remove
         var tokensToRemove = new List<JToken>();
 
-        // Recursively find all JTokens that are parent objects of 'instanceID' properties
         CollectTokensToRemove(token, tokensToRemove);
 
-        // Remove each collected JToken from its parent
         foreach (var tok in tokensToRemove)
         {
             tok.Remove();
@@ -49,25 +42,21 @@ public class UnityScriptableObjectSerializer : JsonConverter
     {
         if (token.Type == JTokenType.Object)
         {
-            // Iterate through all children of the JObject
-            var children = token.Children<JProperty>().ToList(); // ToList to avoid modifying the collection while iterating
+            var children = token.Children<JProperty>().ToList();
             foreach (var child in children)
             {
                 if (child.Value is JObject childObject && childObject["instanceID"] != null)
                 {
-                    // If the child is an object and has 'instanceID', add the child to the list
                     tokensToRemove.Add(child);
                 }
                 else
                 {
-                    // Otherwise, recursively search in the child
                     CollectTokensToRemove(child.Value, tokensToRemove);
                 }
             }
         }
         else if (token.Type == JTokenType.Array)
         {
-            // If the token is an array, recursively search each element
             foreach (var child in token.Children())
             {
                 CollectTokensToRemove(child, tokensToRemove);

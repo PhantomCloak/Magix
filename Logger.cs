@@ -10,6 +10,13 @@ namespace Magix.Diagnostics
         Error = 2
     }
 
+    public enum LogType
+    {
+        Normal = 0,
+        Warning = 1,
+        Error = 2
+    }
+
     public static class Logger
     {
         public static LogLevel Level = LogLevel.Warning;
@@ -21,16 +28,7 @@ namespace Magix.Diagnostics
                 return;
             }
 
-            Debug.Log($"[LOG VERBOSE {GetTime()}]:" + message);
-        }
-
-        public static void Log(string category, string message, Color color)
-        {
-            if (Level > LogLevel.Warning)
-            {
-                return;
-            }
-            Debug.Log(string.Format("<color=#{0:X2}{1:X2}{2:X2}>{3}</color>", (byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), $"[LOG {category}] {GetTime()}]:" + message));
+            Log("VERBOSE", message, LogType.Normal, Color.white);
         }
 
         public static void Log(string message)
@@ -40,7 +38,7 @@ namespace Magix.Diagnostics
                 return;
             }
 
-            Debug.Log($"[LOG INFO {GetTime()}]:" + message);
+            Log("INF", message, LogType.Normal, Color.white);
         }
 
         public static void LogWarn(string message)
@@ -50,7 +48,7 @@ namespace Magix.Diagnostics
                 return;
             }
 
-            Debug.LogWarning($"[LOG WARN {GetTime()}]:" + message);
+            Log("WARN", message, LogType.Normal, Color.yellow);
         }
 
         public static void LogError(string message)
@@ -60,12 +58,28 @@ namespace Magix.Diagnostics
                 return;
             }
 
-            Debug.LogError($"[LOG ERROR {GetTime()}]:" + message);
+            Log("ERR", message, LogType.Error, Color.red);
         }
 
         private static string GetTime()
         {
             return DateTime.Now.ToString("dd':'HH':'mm':'ss");
+        }
+
+        private static void Log(string category, string message, LogType type, Color color)
+        {
+            if (Level > LogLevel.Warning)
+            {
+                return;
+            }
+            var msg = string.Format("<color=#{0:X2}{1:X2}{2:X2}>{3}</color>{4}", (byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), $"[LOG {category}] {GetTime()}]:", message);
+
+            if (type == LogType.Normal)
+                Debug.Log(msg);
+            else if (type == LogType.Warning)
+                Debug.LogWarning(msg);
+            else if (type == LogType.Error)
+                Debug.LogError(msg);
         }
     }
 }

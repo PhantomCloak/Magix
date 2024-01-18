@@ -50,7 +50,7 @@ public static class SerializedPropertyExtensions
                 property.colorValue = (Color)value;
                 break;
             default:
-                Debug.LogError("Type not implemented for: " + property.propertyType);
+                Logger.LogError("Type not implemented for: " + property.propertyType);
                 break;
         }
 
@@ -74,7 +74,7 @@ public static class SerializedPropertyExtensions
             case SerializedPropertyType.Color:
                 return property.colorValue;
             default:
-                Debug.Log("Type not implemented for: " + property.propertyType);
+                Logger.LogError("Type not implemented for: " + property.propertyType);
                 return null;
         }
     }
