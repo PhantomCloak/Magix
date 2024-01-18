@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace Magix
 {
@@ -12,6 +14,33 @@ namespace Magix
             FillChildResource((CloudScriptableObject)obj);
 
             return obj;
+        }
+
+        public static T LoadResourceDirect<T>(string path) where T : Object
+        {
+            var obj = Resources.Load<T>(path);
+
+            if (typeof(T).IsSubclassOf(typeof(CloudScriptableObject)))
+            {
+                FillChildResource(obj as CloudScriptableObject);
+            }
+
+            return obj;
+        }
+
+        public static T[] LoadResourceAllDirect<T>(string path) where T : Object
+        {
+            var objs = Resources.LoadAll<T>(path);
+
+            if (typeof(T).IsSubclassOf(typeof(CloudScriptableObject)))
+            {
+                for (int i = 0; i < objs.Length; i++)
+                {
+                    FillChildResource(objs[i] as CloudScriptableObject);
+                }
+            }
+
+            return objs;
         }
 
         private static void FillChildResource(CloudScriptableObject obj)
@@ -28,12 +57,9 @@ namespace Magix
 
             foreach (FieldInfo field in fields)
             {
-                // Check if the field is of type CloudScriptableObject or derived from it
                 if (typeof(CloudScriptableObject).IsAssignableFrom(field.FieldType))
                 {
                     CloudScriptableObject child = field.GetValue(obj) as CloudScriptableObject;
-
-                    // Recursively process the child
                     FillChildResource(child);
                 }
             }

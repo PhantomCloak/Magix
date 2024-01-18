@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Magix.Diagnostics;
 
 public class ThreadContextManager : MonoBehaviour
 {

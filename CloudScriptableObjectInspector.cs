@@ -7,6 +7,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using Magix.Diagnostics;
 
 namespace Magix
 {
@@ -17,12 +18,14 @@ namespace Magix
     }
 
     [CustomEditor(typeof(CloudScriptableObject), true)]
+    [CanEditMultipleObjects]
     public class CloudResourceEditor : Editor
     {
         private readonly string[] environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
         private int selectedEnvironmentIndex = 0;
         private bool repaintRequested = false;
         private string previousName = string.Empty;
+        private bool IsMultipleSelection => targets.Length > 1;
 
         private void OnEnable()
         {
@@ -95,6 +98,29 @@ namespace Magix
                 return;
             }
 
+            if (IsMultipleSelection)
+            {
+                if (DoesTargetEligibleForUpload(targets) && GUILayout.Button($"Upload {targets.Length} objects."))
+                {
+                    int ctx = 0;
+                    foreach (var targetToUpload in targets)
+                    {
+                        UploadResource((CloudScriptableObject)targetToUpload, () =>
+                        {
+                            ctx++;
+                            if (ctx == targets.Length)
+                            {
+                                repaintRequested = true;
+                                Debug.Log("Upload successfully");
+                            }
+                        });
+                    }
+                }
+
+                base.OnInspectorGUI();
+                return;
+            }
+
             if (InstanceManager.ResourceAPI == null)
             {
                 GUILayout.Label("Waiting InstanceManager.ResourceAPI to be initialized.");
@@ -116,11 +142,11 @@ namespace Magix
             EditorGUI.BeginChangeCheck();
             if (targetResource.IsExist)
             {
-                if (RenderResourceInfo(targetResource))
+                if (!IsMultipleSelection && RenderResourceInfo(targetResource))
                 {
                     return;
                 }
-                if (RenderResourceSyncOptions(targetResource))
+                if (!IsMultipleSelection && RenderResourceSyncOptions(targetResource))
                 {
                     return;
                 }
@@ -153,7 +179,8 @@ namespace Magix
             }
             else
             {
-                RenderControls(targetResource);
+                if (!IsMultipleSelection)
+                    RenderControls(targetResource);
             }
 
             GUILayout.Space(25);
@@ -352,6 +379,33 @@ namespace Magix
             });
         }
 
+        private void UploadResource(CloudScriptableObject targetToUpload, Action onComplete)
+        {
+            int ctx = 0;
+            foreach (var option in environmentOptions)
+            {
+                InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)targetToUpload,
+                                                    (Environment)Enum.Parse(typeof(Environment), option)),
+                                                    targetToUpload,
+                                                    (success, message) =>
+                {
+                    if (!success)
+                    {
+                        Logger.LogError("An error occured while uploading resource from cloud");
+                        return;
+                    }
+
+                    Logger.LogVerbose("Resource successfully uploaded to cloud");
+
+                    ((CloudScriptableObject)targetToUpload).IsExist = true;
+
+                    ctx++;
+                    if (ctx == environmentOptions.Length)
+                        onComplete.Invoke();
+                });
+            }
+        }
+
         private void GetOriginalResource(CloudScriptableObject targetResource, Action<object> callback)
         {
             var originalPrototype = Activator.CreateInstance(targetResource.GetType());
@@ -493,9 +547,21 @@ namespace Magix
 
                 if (property.IsTypePrimitive() && IsPropertyifferentThanOriginal(property, out var originalvalue))
                 {
-					property.SetValue(originalvalue);
+                    property.SetValue(originalvalue);
                 }
             }
+        }
+
+        private bool DoesTargetEligibleForUpload(object[] targets)
+        {
+            int ctx = 0;
+            foreach (var targetToInspect in targets)
+            {
+                if (targetToInspect.GetType().IsSubclassOf(typeof(CloudScriptableObject)) && !((CloudScriptableObject)targetToInspect).IsExist)
+                    ctx++;
+            }
+
+            return ctx == targets.Length;
         }
 
         private void AttachContextMenu(Rect position, SerializedProperty property, object originalValue)
@@ -582,7 +648,16 @@ namespace Magix
 
                     if (i < fieldStructure.Length - 1)
                     {
-                        objectType = fieldInfo.FieldType.GetElementType(); // For arrays and lists
+                        // For arrays
+                        if (fieldInfo.FieldType.IsArray)
+                        {
+                            objectType = fieldInfo.FieldType.GetElementType();
+                        }
+                        // For generic lists
+                        else if (fieldInfo.FieldType.IsGenericType && fieldInfo.FieldType.GetGenericTypeDefinition() == typeof(List<>))
+                        {
+                            objectType = fieldInfo.FieldType.GetGenericArguments()[0];
+                        }
                     }
                 }
                 else

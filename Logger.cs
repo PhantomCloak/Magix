@@ -1,67 +1,71 @@
 using System;
 using UnityEngine;
 
-public enum LogLevel {
-    Verbose = 0,
-    Warning = 1,
-    Error = 2
-}
-
-public static class Logger
+namespace Magix.Diagnostics
 {
-    public static LogLevel Level = LogLevel.Warning;
-
-    public static void LogVerbose(string message)
+    public enum LogLevel
     {
-        if(Level > LogLevel.Verbose)
-        {
-            return;
-        }
-
-        Debug.Log($"[LOG VERBOSE {GetTime()}]:" + message);
+        Verbose = 0,
+        Warning = 1,
+        Error = 2
     }
 
-    public static void Log(string category, string message, Color color)
+    public static class Logger
     {
-        if(Level > LogLevel.Warning)
-        {
-            return;
-        }
-        Debug.Log(string.Format("<color=#{0:X2}{1:X2}{2:X2}>{3}</color>", (byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), $"[LOG {category}] {GetTime()}]:" + message));
-    }
+        public static LogLevel Level = LogLevel.Warning;
 
-    public static void Log(string message)
-    {
-        if(Level > LogLevel.Warning)
+        public static void LogVerbose(string message)
         {
-            return;
+            if (Level > LogLevel.Verbose)
+            {
+                return;
+            }
+
+            Debug.Log($"[LOG VERBOSE {GetTime()}]:" + message);
         }
 
-        Debug.Log($"[LOG INFO {GetTime()}]:" + message);
-    }
-
-    public static void LogWarn(string message)
-    {
-        if(Level > LogLevel.Warning)
+        public static void Log(string category, string message, Color color)
         {
-            return;
+            if (Level > LogLevel.Warning)
+            {
+                return;
+            }
+            Debug.Log(string.Format("<color=#{0:X2}{1:X2}{2:X2}>{3}</color>", (byte)(color.r * 255f), (byte)(color.g * 255f), (byte)(color.b * 255f), $"[LOG {category}] {GetTime()}]:" + message));
         }
 
-        Debug.LogWarning($"[LOG WARN {GetTime()}]:" + message);
-    }
-
-    public static void LogError(string message)
-    {
-        if(Level > LogLevel.Error)
+        public static void Log(string message)
         {
-            return;
+            if (Level > LogLevel.Warning)
+            {
+                return;
+            }
+
+            Debug.Log($"[LOG INFO {GetTime()}]:" + message);
         }
 
-        Debug.LogError($"[LOG ERROR {GetTime()}]:" + message);
-    }
+        public static void LogWarn(string message)
+        {
+            if (Level > LogLevel.Warning)
+            {
+                return;
+            }
 
-    private static string GetTime()
-    {
-        return DateTime.Now.ToString("dd':'HH':'mm':'ss");
+            Debug.LogWarning($"[LOG WARN {GetTime()}]:" + message);
+        }
+
+        public static void LogError(string message)
+        {
+            if (Level > LogLevel.Error)
+            {
+                return;
+            }
+
+            Debug.LogError($"[LOG ERROR {GetTime()}]:" + message);
+        }
+
+        private static string GetTime()
+        {
+            return DateTime.Now.ToString("dd':'HH':'mm':'ss");
+        }
     }
 }
