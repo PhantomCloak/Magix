@@ -11,12 +11,17 @@ public class CloudScriptableObjectILPP : ILPostProcessor
 {
     ILPostProcessorLogger Log = new ILPostProcessorLogger();
 
+    private bool IsInit = false;
+
     private MethodDefinition HookBehaviourLoadFunc = null;
     private MethodDefinition HookDirectLoadFunc = null;
     private MethodDefinition HookDirectAllLoadFunc = null;
-    private const string FrameworkNamespace = "Magix";
 
-    private bool IsInit = false;
+    private const string FrameworkNamespace = "Magix";
+	private const string HookNameResourceLoad = "LoadResourceDirect";
+	private const string HookNameResourceLoadAll = "LoadResourceAllDirect";
+	private const string LogFileName = "magix_diagnostics.txt";
+
     public override ILPostProcessor GetInstance() => this;
 
     void InitHookFuncs(AssemblyDefinition asmDef)
@@ -24,8 +29,8 @@ public class CloudScriptableObjectILPP : ILPostProcessor
         var hookClass = asmDef.MainModule.Types.FirstOrDefault(t => t.FullName == $"{FrameworkNamespace}.CloudScriptableObjectHook");
 
         HookBehaviourLoadFunc = hookClass?.Methods.FirstOrDefault(m => m.Name == "LoadResource" && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.Object");
-        HookDirectLoadFunc = hookClass?.Methods.FirstOrDefault(m => m.Name == "LoadResourceDirect" && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.String");
-        HookDirectAllLoadFunc = hookClass?.Methods.FirstOrDefault(m => m.Name == "LoadResourceAllDirect" && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.String");
+        HookDirectLoadFunc = hookClass?.Methods.FirstOrDefault(m => m.Name == HookNameResourceLoad && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.String");
+        HookDirectAllLoadFunc = hookClass?.Methods.FirstOrDefault(m => m.Name == HookNameResourceLoadAll && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.String");
 
         if (HookBehaviourLoadFunc == null)
         {
@@ -42,23 +47,10 @@ public class CloudScriptableObjectILPP : ILPostProcessor
             Log.LogDiagnostics("LoadResourceAllDirect Hook couldn't find");
         }
 
-		Log.LogDiagnostics("diagnostics.txt");
+		Log.LogDiagnostics(LogFileName);
 
         IsInit = true;
     }
-
-    MethodReference GetMethodRefResourcesLoad(AssemblyDefinition asmDef)
-    {
-        Type resourcesType = Type.GetType("UnityEngine.Resources, UnityEngine");
-
-        MethodInfo loadMethodInfo = resourcesType
-            .GetMethods(BindingFlags.Static | BindingFlags.Public)
-            .FirstOrDefault(m => m.Name == "Load" && !m.IsGenericMethod && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string));
-
-
-        return asmDef.MainModule.ImportReference(loadMethodInfo);
-    }
-
 
     void Patch(MethodDefinition targetMethod, List<FieldDefinition> fieldsToPatch, MethodDefinition hook)
     {
@@ -92,6 +84,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                 head = head.Next;
             }
         }
+
         ilProcessor.Append(ilProcessor.Create(OpCodes.Ret)); // Return
     }
 
@@ -124,7 +117,7 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                 catch (AssemblyResolutionException)
                 {
                     Log.LogDiagnostics("Failed to resolve type: " + field.FieldType.FullName);
-                    Log.SaveLogsToFile("diagnostics.txt");
+                    Log.SaveLogsToFile(LogFileName);
                 }
             }
         }
@@ -168,38 +161,43 @@ public class CloudScriptableObjectILPP : ILPostProcessor
             for (int i = 0; i < method.Body.Instructions.Count; i++)
             {
                 Instruction instruction = method.Body.Instructions[i];
-                if ((instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt) && instruction.Operand is MethodReference operand)
+
+                if (instruction.OpCode != OpCodes.Call || instruction.Operand is not MethodReference operand)
                 {
-                    if (operand.DeclaringType.FullName == "UnityEngine.Resources" && operand is GenericInstanceMethod genericMethod && operand.Parameters.Count == 1)
+                    continue;
+                }
+
+                if (operand.DeclaringType.FullName != "UnityEngine.Resources" || operand is not GenericInstanceMethod genericMethod || operand.Parameters.Count != 1)
+                {
+                    continue;
+                }
+
+                if (method.DeclaringType.FullName.StartsWith(FrameworkNamespace))
+                    continue;
+
+                var ilProcessor = method.Body.GetILProcessor();
+
+
+                if (operand.Name == "Load")
+                {
+                    var genericHookMethod = new GenericInstanceMethod(HookDirectLoadFunc);
+
+                    foreach (var arg in genericMethod.GenericArguments)
                     {
-                        if (method.DeclaringType.FullName.StartsWith(FrameworkNamespace))
-                            continue;
-
-                        var ilpp = method.Body.GetILProcessor();
-
-
-                        if (operand.Name == "Load")
-                        {
-                            var genericHookMethod = new GenericInstanceMethod(HookDirectLoadFunc);
-
-                            foreach (var arg in genericMethod.GenericArguments)
-                            {
-                                genericHookMethod.GenericArguments.Add(arg);
-                            }
-
-                            ilpp.Replace(instruction, ilpp.Create(OpCodes.Call, genericHookMethod));
-                        }
-                        else if (operand.Name == "LoadAll")
-                        {
-                            var genericHookMethod = new GenericInstanceMethod(HookDirectAllLoadFunc);
-
-                            foreach (var arg in genericMethod.GenericArguments)
-                            {
-                                genericHookMethod.GenericArguments.Add(arg);
-                            }
-                            ilpp.Replace(instruction, ilpp.Create(OpCodes.Call, genericHookMethod));
-                        }
+                        genericHookMethod.GenericArguments.Add(arg);
                     }
+
+                    ilProcessor.Replace(instruction, ilProcessor.Create(OpCodes.Call, genericHookMethod));
+                }
+                else if (operand.Name == "LoadAll")
+                {
+                    var genericHookMethod = new GenericInstanceMethod(HookDirectAllLoadFunc);
+
+                    foreach (var arg in genericMethod.GenericArguments)
+                    {
+                        genericHookMethod.GenericArguments.Add(arg);
+                    }
+                    ilProcessor.Replace(instruction, ilProcessor.Create(OpCodes.Call, genericHookMethod));
                 }
             }
         }
@@ -261,8 +259,6 @@ public class CloudScriptableObjectILPP : ILPostProcessor
                 return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), Log.Logs);
             }
         }
-
-        return new ILPostProcessResult(compiledAssembly.InMemoryAssembly, Log.Logs);
     }
 
     public override bool WillProcess(ICompiledAssembly compiledAssembly)

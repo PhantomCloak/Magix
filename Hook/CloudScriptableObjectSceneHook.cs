@@ -1,27 +1,12 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using System.Linq;
-using UnityEngine.SceneManagement;
 using UnityEditor;
 using System.Collections.Generic;
 using System;
 
 namespace Magix
 {
-    public static class CloudScriptableObjectSceneHook
-    {
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
-        public static void OnBootHook()
-        {
-            SceneManager.sceneUnloaded += OnSceneLoading;
-        }
-
-        private static void OnSceneLoading(Scene scene)
-        {
-        }
-    }
-
-
     [InitializeOnLoad]
     public class EditorStartup
     {
