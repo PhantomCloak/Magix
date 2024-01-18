@@ -12,6 +12,7 @@ namespace Magix
         {
             get
             {
+#if UNITY_EDITOR
                 if (m_ResourceAPI == null)
                 {
                     var apiType = AppDomain.CurrentDomain.GetAssemblies()
@@ -21,9 +22,10 @@ namespace Magix
                     if (apiType != null)
                     {
                         m_ResourceAPI = (ICloudResourceAPI)Activator.CreateInstance(apiType);
-						Logger.LogVerbose($"Created an instance of {apiType.FullName} for ICloudResourceAPI.");
+                        Logger.LogVerbose($"Created an instance of {apiType.FullName} for ICloudResourceAPI.");
                     }
                 }
+#endif
 
                 return m_ResourceAPI;
             }

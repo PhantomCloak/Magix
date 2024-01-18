@@ -3,61 +3,64 @@ using System.IO;
 using System.Text;
 using Unity.CompilationPipeline.Common.Diagnostics;
 
-public class ILPostProcessorLogger
+namespace Magix.ILPP
 {
-    // can't Debug.Log in ILPostProcessor. need to add to this list.
-    internal List<DiagnosticMessage> Logs = new List<DiagnosticMessage>();
-
-    void Add(string message, DiagnosticType logType)
+    public class ILPostProcessorLogger
     {
-        Logs.Add(new DiagnosticMessage
-        {
-            // TODO add file etc. for double click opening later?
-            DiagnosticType = logType, // doesn't have .Log
-            File = null,
-            Line = 0,
-            Column = 0,
-            MessageData = message
-        });
-    }
+        // can't Debug.Log in ILPostProcessor. need to add to this list.
+        internal List<DiagnosticMessage> Logs = new List<DiagnosticMessage>();
 
-    public void LogDiagnostics(string message, DiagnosticType logType = DiagnosticType.Warning)
-    {
-        // TODO IN-44868 FIX IS IN 2021.3.32f1, 2022.3.11f1, 2023.2.0b13 and 2023.3.0a8
-        // DiagnosticMessage can't display \n for some reason.
-        // it just cuts it off and we don't see any stack trace.
-        // so let's replace all line breaks so we get the stack trace.
-        // (Unity 2021.2.0b6 apple silicon)
-        //message = message.Replace("\n", "/");
-
-        // lets break it into several messages instead so it's easier readable
-        string[] lines = message.Split('\n');
-
-        // if it's just one line, simply log it
-        if (lines.Length == 1)
+        void Add(string message, DiagnosticType logType)
         {
-            // tests assume exact message log.
-            // don't include 'Weaver: ...' or similar.
-            Add($"{message}", logType);
-        }
-        // for multiple lines, log each line separately with start/end indicators
-        else
-        {
-            // first line with Weaver: ... first
-            Add("----------------------------------------------", logType);
-            foreach (string line in lines) Add(line, logType);
-            Add("----------------------------------------------", logType);
-        }
-    }
-
-      public void SaveLogsToFile(string filePath)
-    {
-        StringBuilder logContent = new StringBuilder();
-        foreach (var log in Logs)
-        {
-            logContent.AppendLine(log.MessageData);
+            Logs.Add(new DiagnosticMessage
+            {
+                // TODO add file etc. for double click opening later?
+                DiagnosticType = logType, // doesn't have .Log
+                File = null,
+                Line = 0,
+                Column = 0,
+                MessageData = message
+            });
         }
 
-        File.AppendAllText(filePath, logContent.ToString());
+        public void LogDiagnostics(string message, DiagnosticType logType = DiagnosticType.Warning)
+        {
+            // TODO IN-44868 FIX IS IN 2021.3.32f1, 2022.3.11f1, 2023.2.0b13 and 2023.3.0a8
+            // DiagnosticMessage can't display \n for some reason.
+            // it just cuts it off and we don't see any stack trace.
+            // so let's replace all line breaks so we get the stack trace.
+            // (Unity 2021.2.0b6 apple silicon)
+            //message = message.Replace("\n", "/");
+
+            // lets break it into several messages instead so it's easier readable
+            string[] lines = message.Split('\n');
+
+            // if it's just one line, simply log it
+            if (lines.Length == 1)
+            {
+                // tests assume exact message log.
+                // don't include 'Weaver: ...' or similar.
+                Add($"{message}", logType);
+            }
+            // for multiple lines, log each line separately with start/end indicators
+            else
+            {
+                // first line with Weaver: ... first
+                Add("----------------------------------------------", logType);
+                foreach (string line in lines) Add(line, logType);
+                Add("----------------------------------------------", logType);
+            }
+        }
+
+        public void SaveLogsToFile(string filePath)
+        {
+            StringBuilder logContent = new StringBuilder();
+            foreach (var log in Logs)
+            {
+                logContent.AppendLine(log.MessageData);
+            }
+
+            File.AppendAllText(filePath, logContent.ToString());
+        }
     }
 }

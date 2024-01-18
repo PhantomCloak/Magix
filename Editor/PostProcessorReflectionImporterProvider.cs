@@ -1,11 +1,12 @@
 using Mono.Cecil;
 
-class PostProcessorReflectionImporterProvider : IReflectionImporterProvider
+namespace Magix.ILPP
 {
-    public IReflectionImporter GetReflectionImporter(ModuleDefinition moduleDefinition)
+    class PostProcessorReflectionImporterProvider : IReflectionImporterProvider
     {
-        return new PostProcessorReflectionImporter(moduleDefinition);
+        public IReflectionImporter GetReflectionImporter(ModuleDefinition moduleDefinition)
+        {
+            return new PostProcessorReflectionImporter(moduleDefinition);
+        }
     }
 }
-
-

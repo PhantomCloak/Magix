@@ -5,7 +5,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System;
 
-namespace Magix
+namespace Magix.Editor
 {
     [InitializeOnLoad]
     public class EditorStartup

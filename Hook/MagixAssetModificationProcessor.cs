@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 
-namespace Magix
+namespace Magix.Editor
 {
     public class MagixAssetModificationProcessor : AssetModificationProcessor
     {

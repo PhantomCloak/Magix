@@ -5,7 +5,7 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using System.IO;
 
-namespace Magix
+namespace Magix.Editor
 {
     public class CloudScriptableObjectBuildHook : IPreprocessBuildWithReport
     {

@@ -3,61 +3,65 @@ using System.Collections.Generic;
 using UnityEngine;
 using Magix.Diagnostics;
 
-public class ThreadContextManager : MonoBehaviour
+// This class only serves purpose of executing callbacks on the main thread
+namespace Magix.Utils
 {
-    private static Queue<(Delegate callback, object[] args)> callbacks = new Queue<(Delegate, object[])>();
-    private static ThreadContextManager _instance;
-    public delegate void SyncGenericCallback(params object[] args);
-
-    void Awake()
+    public class ThreadContextManager : MonoBehaviour
     {
-        if (_instance != null)
+        private static Queue<(Delegate callback, object[] args)> callbacks = new Queue<(Delegate, object[])>();
+        private static ThreadContextManager _instance;
+        public delegate void SyncGenericCallback(params object[] args);
+
+        void Awake()
         {
-            if (_instance != this)
+            if (_instance != null)
             {
-                Destroy(this.gameObject);
+                if (_instance != this)
+                {
+                    Destroy(this.gameObject);
+                }
+            }
+            else
+            {
+                _instance = this;
+                DontDestroyOnLoad(this);
             }
         }
-        else
+
+        void Update()
         {
-            _instance = this;
-            DontDestroyOnLoad(this);
-        }
-    }
-
-    void Update()
-    {
-        while (callbacks.Count > 0)
-        {
-            (Delegate callback, object[] args) callbackObject;
-
-            lock (callbacks)
-                callbackObject = callbacks.Dequeue();
-
-            if (callbackObject.callback == null)
+            while (callbacks.Count > 0)
             {
-                Logger.LogError("Callback returned null possible race condition");
+                (Delegate callback, object[] args) callbackObject;
+
+                lock (callbacks)
+                    callbackObject = callbacks.Dequeue();
+
+                if (callbackObject.callback == null)
+                {
+                    Logger.LogError("Callback returned null possible race condition");
+                }
+                callbackObject.callback.DynamicInvoke(callbackObject.args);
             }
-            callbackObject.callback.DynamicInvoke(callbackObject.args);
-        }
-    }
-
-    public static SyncGenericCallback GetSynchronizeCallbackHandler(Delegate callback)
-    {
-        if (_instance == null)
-        {
-            return null;
         }
 
-        if (callback == null)
+        public static SyncGenericCallback GetSynchronizeCallbackHandler(Delegate callback)
         {
-            return null;
-        }
+            if (_instance == null)
+            {
+                return null;
+            }
 
-        return (object[] args) =>
-        {
-            lock (callbacks)
-                callbacks.Enqueue((callback, args));
-        };
+            if (callback == null)
+            {
+                return null;
+            }
+
+            return (object[] args) =>
+            {
+                lock (callbacks)
+                    callbacks.Enqueue((callback, args));
+            };
+        }
     }
 }

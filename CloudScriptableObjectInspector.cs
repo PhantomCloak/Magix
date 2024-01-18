@@ -8,7 +8,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 
-namespace Magix
+namespace Magix.Editor
 {
     public enum Environment
     {
@@ -18,7 +18,7 @@ namespace Magix
 
     [CustomEditor(typeof(CloudScriptableObject), true)]
     [CanEditMultipleObjects]
-    public class CloudResourceEditor : Editor
+    public class CloudResourceEditor : UnityEditor.Editor
     {
         private readonly string[] _environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
         private int _selectedEnvironmentIndex = 0;

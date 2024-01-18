@@ -48,7 +48,7 @@ namespace Magix
         }
 
 #if UNITY_EDITOR
-        internal void InitializeResource(Action<bool> success, Environment environment)
+        internal void InitializeResource(Action<bool> success, Magix.Editor.Environment environment)
         {
             if (IsInitInProgress)
             {
