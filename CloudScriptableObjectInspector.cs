@@ -7,6 +7,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using Magix.Utils;
 
 namespace Magix.Editor
 {
@@ -52,16 +53,18 @@ namespace Magix.Editor
             {
                 return true;
             }
-            
+
             if (!targetResource.IsInit)
             {
-                GUILayout.Label("Waiting resource to be ready...");
-                Logger.LogVerbose("Resource trying to initialize...");
+                GUILayout.Label($"Initializing resource '{targetResource.name}'");
+
+                Logger.LogVerbose($"Resource '{targetResource.name}' is trying to initialize in environment: {GetCurrentEnvironment()}");
 
                 targetResource.InitializeResource((success) =>
                 {
                     if (!success)
-                        Logger.LogError("An error occured while loading resource from cloud");
+                        Logger.LogError($"Failed to load resource '{targetResource.name}' from cloud. Environment: {GetCurrentEnvironment()}");
+
 
                     _repaintRequested = true;
                 }, GetCurrentEnvironment());
@@ -76,10 +79,11 @@ namespace Magix.Editor
         {
             if (!InstanceManager.ResourceAPI.IsLoggedIn)
             {
-                GUILayout.Label("Waiting cloud to be online");
+                GUILayout.Label("Awaiting login to cloud services.");
 
-                if (GUILayout.Button("Refresh"))
+                if (GUILayout.Button("Retry Login"))
                 {
+                    Logger.LogVerbose("Attempting to log in through the editor...");
                     InstanceManager.ResourceAPI.EditorLogin();
                 }
 
@@ -94,14 +98,14 @@ namespace Magix.Editor
         {
             if (Application.isPlaying)
             {
-                GUILayout.Label("Controls are turned off in play mode");
+                GUILayout.Label("Editor controls are disabled during play mode.");
                 base.OnInspectorGUI();
                 return;
             }
 
             if (IsMultipleSelection)
             {
-                if (DoesTargetEligibleForUpload(targets) && GUILayout.Button($"Upload {targets.Length} objects."))
+                if (IsTargetsCloudCompetible(targets) && GUILayout.Button($"Upload {targets.Length} objects."))
                 {
                     int ctx = 0;
                     foreach (var targetToUpload in targets)
@@ -112,7 +116,6 @@ namespace Magix.Editor
                             if (ctx == targets.Length)
                             {
                                 _repaintRequested = true;
-                                Debug.Log("Upload successfully");
                             }
                         });
                     }
@@ -124,7 +127,7 @@ namespace Magix.Editor
 
             if (InstanceManager.ResourceAPI == null)
             {
-                GUILayout.Label("Waiting InstanceManager.ResourceAPI to be initialized.");
+                GUILayout.Label("Initializing InstanceManager.ResourceAPI...");
                 GUILayout.Space(10);
                 base.OnInspectorGUI();
                 return;
@@ -196,40 +199,23 @@ namespace Magix.Editor
         {
             if (GUILayout.Button("Upload"))
             {
-                int callbackCount = 0;
-                foreach (var option in _environmentOptions)
+                UploadResource(targetResource, () =>
                 {
-                    // Add rollback if one or more of the upload fails
-                    InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetResource,
-                            (Environment)Enum.Parse(typeof(Environment), option)),
-                            target,
-                            (success, _) =>
-                    {
-                        if (!success)
-                        {
-                            Logger.LogError("An error occured while uploading resource from cloud");
-                            return;
-                        }
-
-                        Logger.LogVerbose("Resource successfully uploaded to cloud");
-                        callbackCount++;
-
-                        if (callbackCount == _environmentOptions.Length)
-                        {
-                            Debug.Log("Tail success");
-                            targetResource.IsExist = true;
-                            _repaintRequested = true;
-                        }
-                    });
-                }
+                    targetResource.IsExist = true;
+                    _repaintRequested = true;
+                });
             }
 
             return false;
         }
+
         private bool RenderResourceSyncOptions(CloudScriptableObject targetResource)
         {
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh"))
+
+            Event e = Event.current;
+
+            if (!e.shift && GUILayout.Button("Refresh"))
             {
                 if (targetResource.IsInitInProgress)
                     return false;
@@ -240,6 +226,28 @@ namespace Magix.Editor
                 }
 
                 return false;
+            }
+            else if (e.shift)
+            {
+                if (GUILayout.Button("De-attach from cloud"))
+                {
+                    int ctx = 0;
+                    foreach (var env in MagixConfig.Environments)
+                    {
+                        InstanceManager.ResourceAPI.DeleteVariableCloud(env + "-res-" + targetResource.name, (success, msg) =>
+                        {
+                            ctx++;
+                            if (ctx >= MagixConfig.Environments.Length)
+                            {
+                                Logger.LogVerbose("Cloud resource deleted successfully");
+								targetResource.IsExist = false;
+								targetResource.IsInit = false;
+                                _repaintRequested = true;
+                            }
+                        });
+                    }
+                    // TODO 
+                }
             }
 
             bool isOnProduction = (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]) == Environment.Production;
@@ -299,7 +307,6 @@ namespace Magix.Editor
             targetResource.IsInitInProgress = true;
             PullChanges(target, () =>
             {
-                Logger.Log("Pull success");
                 targetResource.IsInitInProgress = false;
                 _repaintRequested = true;
                 ResetResources();
@@ -349,7 +356,6 @@ namespace Magix.Editor
                     string originalJson = JsonUtility.ToJson(original);
                     string currentJson = JsonUtility.ToJson(targetResource.Original);
 
-                    Logger.Log("Sync" + originalJson + " \n Current: " + currentJson);
                     if (originalJson != currentJson)
                     {
                         Logger.LogError("Original and current versions of the resource are not identical. A sync may be required.\n Original: " + originalJson + " \n Current: " + currentJson);
@@ -378,7 +384,7 @@ namespace Magix.Editor
             });
         }
 
-        private void UploadResource(CloudScriptableObject targetToUpload, Action onComplete)
+        private void UploadResource(CloudScriptableObject targetToUpload, Action onComplete = null)
         {
             int ctx = 0;
             foreach (var option in _environmentOptions)
@@ -400,7 +406,7 @@ namespace Magix.Editor
 
                     ctx++;
                     if (ctx == _environmentOptions.Length)
-                        onComplete.Invoke();
+                        onComplete?.Invoke();
                 });
             }
         }
@@ -422,7 +428,7 @@ namespace Magix.Editor
             });
         }
 
-        private ReorderableList CreateReorderableList(SerializedProperty property)
+        private ReorderableList DrawWithReorderableList(SerializedProperty property)
         {
             var list = new ReorderableList(property.serializedObject, property, true, true, true, true);
 
@@ -464,11 +470,11 @@ namespace Magix.Editor
                          {
                              if (!IsPropertyPresentInRemote(current))
                              {
-                                 DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.red);
+                                 DrawHiglighMarkOnField(current, rect.x + current.depth * 8, elementStartPosY, Color.red);
                              }
-                             else if (IsPropertyDifferentThanOriginal(current,CloudOrig , out var originalValue))
+                             else if (IsPropertyDifferentThanOriginal(current, CloudOrig, out var originalValue))
                              {
-                                 DrawHiglighMark(current, rect.x + current.depth * 8, elementStartPosY, Color.green);
+                                 DrawHiglighMarkOnField(current, rect.x + current.depth * 8, elementStartPosY, Color.green);
                                  AttachContextMenu(new Rect(rect.x - 5, elementStartPosY + 1, rect.width, EditorGUI.GetPropertyHeight(current, true) - 2), current.Copy(), originalValue);
                              }
                          }
@@ -503,7 +509,7 @@ namespace Magix.Editor
 
                 if (field.FieldType.IsArray || (field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(List<>)))
                 {
-                    ReorderableList list = CreateReorderableList(property);
+                    ReorderableList list = DrawWithReorderableList(property);
                     serializedObject.Update();
                     list.DoLayoutList();
                     serializedObject.ApplyModifiedProperties();
@@ -512,9 +518,9 @@ namespace Magix.Editor
                 {
                     Rect position = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(property, true));
 
-                    if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property,CloudOrig, out var originalvalue))
+                    if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalvalue))
                     {
-                        DrawHiglighMark(property, position.x, position.y, Color.green);
+                        DrawHiglighMarkOnField(property, position.x, position.y, Color.green);
                         AttachContextMenu(position, property, originalvalue);
                     }
 
@@ -534,14 +540,14 @@ namespace Magix.Editor
                 if (property == null)
                     continue;
 
-                if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig,out var originalvalue))
+                if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalvalue))
                 {
                     property.SetValue(originalvalue);
                 }
             }
         }
 
-        private bool DoesTargetEligibleForUpload(object[] targets)
+        private bool IsTargetsCloudCompetible(object[] targets)
         {
             int ctx = 0;
             foreach (var targetToInspect in targets)
@@ -566,8 +572,7 @@ namespace Magix.Editor
             }
         }
 
-
-        void DrawHiglighMark(SerializedProperty field, float x, float y, Color markColor)
+        void DrawHiglighMarkOnField(SerializedProperty field, float x, float y, Color markColor)
         {
             Rect highlightRect = new Rect(x - 5, y + 1, 1, EditorGUI.GetPropertyHeight(field, true) - 2);
             EditorGUI.DrawRect(highlightRect, markColor);
@@ -576,24 +581,28 @@ namespace Magix.Editor
         private bool IsPropertyPresentInRemote(SerializedProperty property)
         {
             var orig = ((CloudScriptableObject)target).Original;
+
             if (orig == null)
             {
                 return false;
             }
 
             var info = GetFieldInfoFromProperty(property);
+
             if (info == null)
             {
                 return false;
             }
 
             var objTargetRoot = GetTargetObjectOfPropertyParent(property, orig);
+
             if (objTargetRoot == null)
             {
                 return false;
             }
 
             object originalValue = info.GetValue(objTargetRoot);
+
             return originalValue != null;
         }
 
@@ -746,17 +755,17 @@ namespace Magix.Editor
             return enm.Current;
         }
 
-        private Environment GetCurrentEnvironment()
-        {
-            return (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]);
-        }
-
-        private string GetPrefix(string str)
+        private static string GetPrefix(string str)
         {
             bool success = Enum.TryParse(typeof(Environment), str, true, out var obj);
             if (!success)
                 throw new Exception("Unkown enum value while parsing");
             return obj.ToString() + "-";
+        }
+
+        private Environment GetCurrentEnvironment()
+        {
+            return (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]);
         }
     }
 

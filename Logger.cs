@@ -10,7 +10,7 @@ namespace Magix.Diagnostics
         Error = 2
     }
 
-    public enum LogType
+    enum LogType
     {
         Normal = 0,
         Warning = 1,
