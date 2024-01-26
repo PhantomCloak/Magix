@@ -24,6 +24,7 @@ namespace Magix.Editor
         private readonly string[] _environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
         private int _selectedEnvironmentIndex = 0;
         private bool _repaintRequested = false;
+        private bool _reloadRequested = false;
         private bool IsMultipleSelection => targets.Length > 1;
         private CloudScriptableObject CloudTarget => (CloudScriptableObject)target;
         private object CloudOrig => CloudTarget.Original;
@@ -44,6 +45,13 @@ namespace Magix.Editor
             {
                 Repaint();
                 _repaintRequested = false;
+            }
+
+            if (_reloadRequested)
+            {
+                ReloadResource((CloudScriptableObject)target);
+                _repaintRequested = true;
+				_reloadRequested = false;
             }
         }
 
@@ -84,10 +92,12 @@ namespace Magix.Editor
                 if (GUILayout.Button("Retry Login"))
                 {
                     Logger.LogVerbose("Attempting to log in through the editor...");
-                    InstanceManager.ResourceAPI.EditorLogin();
+                    InstanceManager.ResourceAPI.EditorLogin(() =>
+                    {
+                        _reloadRequested = true;
+                    });
                 }
 
-                this.Repaint();
                 return true;
             }
 
@@ -240,8 +250,8 @@ namespace Magix.Editor
                             if (ctx >= MagixConfig.Environments.Length)
                             {
                                 Logger.LogVerbose("Cloud resource deleted successfully");
-								targetResource.IsExist = false;
-								targetResource.IsInit = false;
+                                targetResource.IsExist = false;
+                                targetResource.IsInit = false;
                                 _repaintRequested = true;
                             }
                         });
