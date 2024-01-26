@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Magix.Diagnostics;
+using Logger = Magix.Diagnostics.Logger;
 
 // This class only serves purpose of executing callbacks on the main thread
 namespace Magix.Utils

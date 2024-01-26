@@ -7,7 +7,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using Magix.Utils;
+using Logger = Magix.Diagnostics.Logger;
 
 namespace Magix.Editor
 {

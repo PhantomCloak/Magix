@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
+using Logger = Magix.Diagnostics.Logger;
 
 namespace Magix.Editor
 {

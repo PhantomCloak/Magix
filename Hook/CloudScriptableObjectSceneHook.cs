@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using System.Collections.Generic;
 using System;
+using Logger = Magix.Diagnostics.Logger;
 
 namespace Magix.Editor
 {

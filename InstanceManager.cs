@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Logger = Magix.Diagnostics.Logger;
 
 namespace Magix
 {
