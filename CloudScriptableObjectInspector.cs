@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
@@ -21,7 +20,7 @@ namespace Magix.Editor
     [CanEditMultipleObjects]
     public class CloudResourceEditor : UnityEditor.Editor
     {
-        private readonly string[] _environmentOptions = new[] { Environment.Production.ToString(), Environment.Development.ToString() };
+        private readonly string[] _environmentOptions = { Environment.Production.ToString(), Environment.Development.ToString() };
         private int _selectedEnvironmentIndex = 0;
         private bool _repaintRequested = false;
         private bool _reloadRequested = false;
@@ -31,27 +30,40 @@ namespace Magix.Editor
 
         private void OnEnable()
         {
+            EditorApplication.playModeStateChanged += OnPlayModeChanged;
             EditorApplication.update += OnEditorUpdate;
         }
 
         private void OnDisable()
         {
             EditorApplication.update -= OnEditorUpdate;
+            EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+        }
+
+        private void OnPlayModeChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                InstanceManager.ResourceAPI.IsLoggedIn = false;
+                InstanceManager.ResourceAPI.EditorLogin(() =>
+                {
+                    _reloadRequested = true;
+                });
+            }
         }
 
         private void OnEditorUpdate()
         {
             if (_repaintRequested)
             {
-                Repaint();
                 _repaintRequested = false;
             }
 
             if (_reloadRequested)
             {
+                Repaint();
                 ReloadResource((CloudScriptableObject)target);
-                _repaintRequested = true;
-				_reloadRequested = false;
+                _reloadRequested = false;
             }
         }
 
@@ -74,7 +86,7 @@ namespace Magix.Editor
                         Logger.LogError($"Failed to load resource '{targetResource.name}' from cloud. Environment: {GetCurrentEnvironment()}");
 
 
-                    _repaintRequested = true;
+                    _reloadRequested = true;
                 }, GetCurrentEnvironment());
 
                 return true;
@@ -115,7 +127,7 @@ namespace Magix.Editor
 
             if (IsMultipleSelection)
             {
-                if (IsTargetsCloudCompetible(targets) && GUILayout.Button($"Upload {targets.Length} objects."))
+                if (IsTargetsCloudCompatible(targets) && GUILayout.Button($"Upload {targets.Length} objects."))
                 {
                     int ctx = 0;
                     foreach (var targetToUpload in targets)
@@ -176,7 +188,7 @@ namespace Magix.Editor
                     InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)target,
                             GetCurrentEnvironment()),
                             target.GetType(),
-                            (success, _, obj) =>
+                            (success, obj) =>
                     {
                         if (!success)
                         {
@@ -244,7 +256,7 @@ namespace Magix.Editor
                     int ctx = 0;
                     foreach (var env in MagixConfig.Environments)
                     {
-                        InstanceManager.ResourceAPI.DeleteVariableCloud(env + "-res-" + targetResource.name, (success, msg) =>
+                        InstanceManager.ResourceAPI.DeleteVariableCloud(env + "-res-" + targetResource.name, (success) =>
                         {
                             ctx++;
                             if (ctx >= MagixConfig.Environments.Length)
@@ -256,7 +268,6 @@ namespace Magix.Editor
                             }
                         });
                     }
-                    // TODO 
                 }
             }
 
@@ -294,7 +305,6 @@ namespace Magix.Editor
         private bool RenderResourceInfo(CloudScriptableObject targetResource)
         {
             GUILayout.Label($"Resource User Id: {InstanceManager.ResourceAPI.EditorUserId}");
-            GUILayout.Label("Resource Collection: NakamaScriptableObj");
             GUILayout.Space(5);
 
             EditorGUI.BeginChangeCheck();
@@ -358,7 +368,6 @@ namespace Magix.Editor
             GetOriginalResource(targetResource, (original) =>
             {
                 EditorApplication.update += CompareAndSync;
-
                 void CompareAndSync()
                 {
                     EditorApplication.update -= CompareAndSync;
@@ -374,7 +383,7 @@ namespace Magix.Editor
 
                     InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment()),
                             targetResource,
-                            (success, message) =>
+                            (success) =>
                     {
                         if (success)
                         {
@@ -382,7 +391,7 @@ namespace Magix.Editor
                         }
                         else
                         {
-                            Logger.LogError("An error occurred while syncing the resource: " + message);
+                            Logger.LogError("An error occurred while syncing the resource");
                         }
 
                         targetResource.IsInit = false;
@@ -399,10 +408,10 @@ namespace Magix.Editor
             int ctx = 0;
             foreach (var option in _environmentOptions)
             {
-                InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)targetToUpload,
+                InstanceManager.ResourceAPI.SetVariableCloud(InstanceManager.Resolver.GetKeyFromObject(targetToUpload,
                                                     (Environment)Enum.Parse(typeof(Environment), option)),
                                                     targetToUpload,
-                                                    (success, message) =>
+                                                    (success) =>
                 {
                     if (!success)
                     {
@@ -426,15 +435,25 @@ namespace Magix.Editor
             var originalPrototype = Activator.CreateInstance(targetResource.GetType());
             InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment()),
                     targetResource.GetType(),
-                    (success, message, obj) =>
+                    (success, objStr) =>
             {
                 if (!success)
                 {
                     Logger.LogError("An error occured during fetching original from the cloud");
                 }
 
-                JsonUtility.FromJsonOverwrite(obj, originalPrototype);
+                //EditorApplication.update += Sync;
+
+                JsonUtility.FromJsonOverwrite(objStr, originalPrototype);
                 callback.Invoke(originalPrototype);
+                // Cool hack innit?
+                void Sync()
+                {
+                    //   EditorApplication.update -= Sync;
+                    //   //var ss = JsonConvert.DeserializeObject(objStr, targetResource.GetType());
+                    //   JsonUtility.FromJsonOverwrite(objStr, originalPrototype);
+                    //   callback.Invoke(originalPrototype);
+                }
             });
         }
 
@@ -476,7 +495,7 @@ namespace Magix.Editor
                              tippingPoint = float.MaxValue;
                          }
 
-                         if (current.IsTypePrimitive())
+                         if (current.IsTypeSerializeable())
                          {
                              if (!IsPropertyPresentInRemote(current))
                              {
@@ -528,10 +547,10 @@ namespace Magix.Editor
                 {
                     Rect position = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(property, true));
 
-                    if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalvalue))
+                    if (property.IsTypeSerializeable() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalValue))
                     {
                         DrawHiglighMarkOnField(property, position.x, position.y, Color.green);
-                        AttachContextMenu(position, property, originalvalue);
+                        AttachContextMenu(position, property, originalValue);
                     }
 
                     EditorGUI.PropertyField(position, property, true);
@@ -550,14 +569,14 @@ namespace Magix.Editor
                 if (property == null)
                     continue;
 
-                if (property.IsTypePrimitive() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalvalue))
+                if (property.IsTypeSerializeable() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalvalue))
                 {
                     property.SetValue(originalvalue);
                 }
             }
         }
 
-        private bool IsTargetsCloudCompetible(object[] targets)
+        private static bool IsTargetsCloudCompatible(object[] targets)
         {
             int ctx = 0;
             foreach (var targetToInspect in targets)
@@ -681,43 +700,7 @@ namespace Magix.Editor
 
             return fieldInfo;
         }
-
-        private static object GetTargetObjectOfProperty(SerializedProperty prop, object obj)
-        {
-            if (prop == null) return null;
-
-            var path = prop.propertyPath.Replace(".Array.data[", "[");
-            var elements = path.Split('.');
-
-            for (int i = 0; i < elements.Length - 1; i++) // Traverse to the parent of the last element
-            {
-                var element = elements[i];
-                if (element.Contains("["))
-                {
-                    var elementName = element.Substring(0, element.IndexOf("["));
-                    var index = Convert.ToInt32(element.Substring(element.IndexOf("[")).Replace("[", "").Replace("]", ""));
-                    obj = GetValueFromIndex(obj, elementName, index);
-                }
-                else
-                {
-                    obj = GetValueFromField(obj, element);
-                }
-            }
-
-            // Get the value of the last property
-            string lastElement = elements.Last();
-            if (lastElement.Contains("["))
-            {
-                var elementName = lastElement.Substring(0, lastElement.IndexOf("["));
-                var index = Convert.ToInt32(lastElement.Substring(lastElement.IndexOf("[")).Replace("[", "").Replace("]", ""));
-                return GetValueFromIndex(obj, elementName, index);
-            }
-            else
-            {
-                return GetValueFromField(obj, lastElement);
-            }
-        }
-
+        
         private static object GetTargetObjectOfPropertyParent(SerializedProperty prop, object obj)
         {
             if (prop == null) return null;
@@ -765,20 +748,11 @@ namespace Magix.Editor
             return enm.Current;
         }
 
-        private static string GetPrefix(string str)
-        {
-            bool success = Enum.TryParse(typeof(Environment), str, true, out var obj);
-            if (!success)
-                throw new Exception("Unkown enum value while parsing");
-            return obj.ToString() + "-";
-        }
-
         private Environment GetCurrentEnvironment()
         {
             return (Environment)Enum.Parse(typeof(Environment), _environmentOptions[_selectedEnvironmentIndex]);
         }
     }
-
 }
 #endif
 
