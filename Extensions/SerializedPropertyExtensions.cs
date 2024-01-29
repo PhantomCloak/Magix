@@ -1,13 +1,13 @@
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
-using Logger = Magix.Diagnostics.Logger;
+using Magix.Diagnostics;
 
 namespace Magix.Editor
 {
     public static class SerializedPropertyExtensions
     {
-        public static bool IsTypePrimitive(this SerializedProperty property)
+        public static bool IsTypeSerializeable(this SerializedProperty property)
         {
             switch (property.propertyType)
             {
@@ -53,7 +53,7 @@ namespace Magix.Editor
                     property.colorValue = (Color)value;
                     break;
                 default:
-                    Logger.LogError("Type not implemented for: " + property.propertyType);
+                    MagixLogger.LogError("Type not implemented for: " + property.propertyType);
                     break;
             }
 
@@ -77,7 +77,7 @@ namespace Magix.Editor
                 case SerializedPropertyType.Color:
                     return property.colorValue;
                 default:
-                    Logger.LogError("Type not implemented for: " + property.propertyType);
+                    MagixLogger.LogError("Type not implemented for: " + property.propertyType);
                     return null;
             }
         }

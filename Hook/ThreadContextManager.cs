@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Magix.Diagnostics;
-using Logger = Magix.Diagnostics.Logger;
 
 // This class only serves purpose of executing callbacks on the main thread
 namespace Magix.Utils
@@ -40,7 +39,7 @@ namespace Magix.Utils
 
                 if (callbackObject.callback == null)
                 {
-                    Logger.LogError("Callback returned null possible race condition");
+                    MagixLogger.LogError("Callback returned null possible race condition");
                 }
                 callbackObject.callback.DynamicInvoke(callbackObject.args);
             }

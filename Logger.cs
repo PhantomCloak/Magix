@@ -17,7 +17,7 @@ namespace Magix.Diagnostics
         Error = 2
     }
 
-    public static class Logger
+    public static class MagixLogger
     {
         public static LogLevel Level = LogLevel.Warning;
 

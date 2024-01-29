@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEditor;
 using System.Collections.Generic;
 using System;
-using Logger = Magix.Diagnostics.Logger;
+using Magix.Diagnostics;
 
 namespace Magix.Editor
 {
@@ -32,7 +32,7 @@ namespace Magix.Editor
                             {
                                 if (!Resources.Load(resourcePath))
                                 {
-                                    Logger.LogWarn($"CloudResource '{resourcePath}' is referenced in the cloud but not found in the local Resources directory.");
+                                    MagixLogger.LogWarn($"CloudResource '{resourcePath}' is referenced in the cloud but not found in the local Resources directory.");
                                 }
                             });
                         }

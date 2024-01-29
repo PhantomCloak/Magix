@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
-using Logger = Magix.Diagnostics.Logger;
+using Magix.Diagnostics;
 
 namespace Magix.Editor
 {
@@ -21,7 +21,7 @@ namespace Magix.Editor
 
                 if (!deleteResult)
                 {
-                    Logger.LogVerbose("Deletion of CloudResource cancelled by user: " + cloudResource.name);
+                    MagixLogger.LogVerbose("Deletion of CloudResource cancelled by user: " + cloudResource.name);
                     return AssetDeleteResult.DidNotDelete;
                 }
 
@@ -32,12 +32,12 @@ namespace Magix.Editor
                     {
                         ctx++;
                         if (ctx >= MagixConfig.Environments.Length)
-                            Logger.LogVerbose("Cloud resource deleted successfully");
+                            MagixLogger.LogVerbose("Cloud resource deleted successfully");
                     });
                 }
 
 
-                Logger.LogVerbose("User confirmed deletion of CloudResource: " + cloudResource.name);
+                MagixLogger.LogVerbose("User confirmed deletion of CloudResource: " + cloudResource.name);
             }
 
             return AssetDeleteResult.DidNotDelete;
@@ -56,7 +56,6 @@ namespace Magix.Editor
             AssetDatabase.SaveAssets();
 
             Logger.LogWarn("Attempted to rename a CloudScriptableObject. To ensure backward compatibility, a duplicating operation was performed instead.");
-
 
             return AssetMoveResult.FailedMove;
 

@@ -6,8 +6,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using Logger = Magix.Diagnostics.Logger;
-
+using Magix.Diagnostics;
 namespace Magix.Editor
 {
     public enum Environment
@@ -442,18 +441,8 @@ namespace Magix.Editor
                     Logger.LogError("An error occured during fetching original from the cloud");
                 }
 
-                //EditorApplication.update += Sync;
-
                 JsonUtility.FromJsonOverwrite(objStr, originalPrototype);
                 callback.Invoke(originalPrototype);
-                // Cool hack innit?
-                void Sync()
-                {
-                    //   EditorApplication.update -= Sync;
-                    //   //var ss = JsonConvert.DeserializeObject(objStr, targetResource.GetType());
-                    //   JsonUtility.FromJsonOverwrite(objStr, originalPrototype);
-                    //   callback.Invoke(originalPrototype);
-                }
             });
         }
 
@@ -547,17 +536,17 @@ namespace Magix.Editor
                 {
                     Rect position = EditorGUILayout.GetControlRect(true, EditorGUI.GetPropertyHeight(property, true));
 
-                    if (property.IsTypeSerializeable() && IsPropertyDifferentThanOriginal(property, CloudOrig, out var originalValue))
+                    EditorGUI.PropertyField(position, property, true);
+                    if (property.IsTypeSerializeable() && IsPropertyDifferentThanOriginal(property, ((CloudScriptableObject)targetObject).Original, out var originalValue))
                     {
+                        EditorUtility.SetDirty(target);
                         DrawHiglighMarkOnField(property, position.x, position.y, Color.green);
                         AttachContextMenu(position, property, originalValue);
                     }
-
-                    EditorGUI.PropertyField(position, property, true);
                 }
             }
 
-            //serializedObject.ApplyModifiedProperties();
+            serializedObject.ApplyModifiedProperties();
         }
 
         private void ResetResources()
@@ -700,7 +689,7 @@ namespace Magix.Editor
 
             return fieldInfo;
         }
-        
+
         private static object GetTargetObjectOfPropertyParent(SerializedProperty prop, object obj)
         {
             if (prop == null) return null;
