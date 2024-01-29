@@ -19,7 +19,7 @@ namespace Magix.Editor
             {
                 InstanceManager.ResourceAPI.EditorLogin(() =>
                 {
-                    InstanceManager.ResourceAPI.GetAllEntriesUser(InstanceManager.ResourceAPI.EditorUserId, (status, result) =>
+                    InstanceManager.ResourceAPI.GetAllEntriesUser(InstanceManager.ResourceAPI.EditorUserId, (result) =>
                     {
                         foreach (var resource in result)
                         {
