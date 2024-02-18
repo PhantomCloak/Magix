@@ -19,7 +19,7 @@ namespace Magix.Diagnostics
 
     public static class MagixLogger
     {
-        public static LogLevel Level = LogLevel.Warning;
+        public static LogLevel Level = LogLevel.Verbose;
 
         public static void LogVerbose(string message)
         {

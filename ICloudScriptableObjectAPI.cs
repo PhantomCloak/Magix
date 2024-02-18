@@ -13,7 +13,7 @@ namespace Magix
 
         // Success, Result
         public void CheckVariableIsExist(string userId, string resourceName, Action<bool> callback);
-        // Success, ErrorMessage, Result
+        // Success, Result
         public void GetVariableCloudJson(string variableName, Type type, Action<bool, string> onCompleteCallback);
         // Success, ErrorMessage, Result
         public void SetVariableCloud<T>(string variableName, T obj, Action<bool> onCompleteCallback = null);

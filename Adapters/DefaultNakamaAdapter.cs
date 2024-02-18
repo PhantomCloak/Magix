@@ -20,7 +20,7 @@ namespace Magix.Adapter
 
         private bool m_IsLoggedIn = false;
         public bool IsLoggedIn { get => m_IsLoggedIn; set => m_IsLoggedIn = value; }
-        public string EditorUserId => "f4bf1a82-4af6-4915-8849-9d735b8f8b62";
+        public string EditorUserId => "00d5464a-290e-40d5-882f-7d9e54cae3eb";
 
         public DefaultNakamaAdapter()
         {
@@ -33,7 +33,7 @@ namespace Magix.Adapter
             {
                 if (client != null)
                 {
-                    Logger.LogWarn($"Client already initialized");
+                    MagixLogger.LogWarn($"Client already initialized");
                     return Task.CompletedTask;
                 }
 
@@ -84,11 +84,11 @@ namespace Magix.Adapter
                 LoginLock = false;
                 if (!success)
                 {
-                    Logger.LogError("An error occured while editor login: " + message);
+                    MagixLogger.LogError("An error occured while editor login: " + message);
                     return;
                 }
 
-                Logger.Log("Editor login success");
+                MagixLogger.Log("Editor login success");
                 IsLoggedIn = true;
                 onEditorLogin?.Invoke();
             });
@@ -107,7 +107,7 @@ namespace Magix.Adapter
                         UserId = session.UserId
                     };
 
-                    var result = await client.ListUsersStorageObjectsAsync(session, "default", userId, 1);
+                    var result = await client.ListUsersStorageObjectsAsync(session, "default", userId, 100);
 
                     callback.Invoke(result.Objects.Any(x => x.Key == resourceName));
                 }
@@ -159,7 +159,7 @@ namespace Magix.Adapter
                {
                    var writeObject = new WriteStorageObject
                    {
-                       Collection = "personal",
+                       Collection = "default",
                        Key = variableName,
                        Value = objStr,
                        PermissionRead = 2, // Public read
@@ -207,7 +207,7 @@ namespace Magix.Adapter
                     {
                     new StorageObjectId
                     {
-                        Collection = "personal",
+                        Collection = "default",
                         Key = variableName,
                     }
                     };

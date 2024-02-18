@@ -61,6 +61,7 @@ namespace Magix.Editor
             if (_reloadRequested)
             {
                 Repaint();
+                Debug.Log("C");
                 ReloadResource((CloudScriptableObject)target);
                 _reloadRequested = false;
             }
@@ -77,15 +78,30 @@ namespace Magix.Editor
             {
                 GUILayout.Label($"Initializing resource '{targetResource.name}'");
 
-                Logger.LogVerbose($"Resource '{targetResource.name}' is trying to initialize in environment: {GetCurrentEnvironment()}");
+                MagixLogger.LogVerbose($"Resource '{targetResource.name}' is trying to initialize for environment: {GetCurrentEnvironment()}");
 
+                var targetName = targetResource.name;
+
+                // While the way using the success might not be the ideal
+                // It's easier alternative to do additional checks 
+                // If something going to happen always can use log
                 targetResource.InitializeResource((success) =>
                 {
-                    if (!success)
-                        Logger.LogError($"Failed to load resource '{targetResource.name}' from cloud. Environment: {GetCurrentEnvironment()}");
+                    targetResource.IsExist = success;
 
+                    if (success)
+                    {
+                        _reloadRequested = true;
+                        MagixLogger.LogVerbose("CloudResource " + targetName + " exist on cloud.");
+                    }
+                    else
+                    {
+                        _repaintRequested = true;
+                        MagixLogger.LogVerbose("CloudResource " + targetName + " does not exist on cloud.");
+                    }
 
-                    _reloadRequested = true;
+                    //MagixLogger.LogError($"Failed to load resource '{targetName}' from cloud. Environment: {GetCurrentEnvironment()}");
+
                 }, GetCurrentEnvironment());
 
                 return true;
@@ -99,10 +115,11 @@ namespace Magix.Editor
             if (!InstanceManager.ResourceAPI.IsLoggedIn)
             {
                 GUILayout.Label("Awaiting login to cloud services.");
+                MagixLogger.LogVerbose("Awaiting login...");
 
                 if (GUILayout.Button("Retry Login"))
                 {
-                    Logger.LogVerbose("Attempting to log in through the editor...");
+                    MagixLogger.LogVerbose("Attempting to log in through the editor...");
                     InstanceManager.ResourceAPI.EditorLogin(() =>
                     {
                         _reloadRequested = true;
@@ -149,6 +166,7 @@ namespace Magix.Editor
             if (InstanceManager.ResourceAPI == null)
             {
                 GUILayout.Label("Initializing InstanceManager.ResourceAPI...");
+                MagixLogger.LogVerbose("Initializing InstanceManager.ResourceAPI...");
                 GUILayout.Space(10);
                 base.OnInspectorGUI();
                 return;
@@ -181,21 +199,11 @@ namespace Magix.Editor
 
                 if (CloudTarget.Original == null)
                 {
+                    MagixLogger.LogVerbose("Fetching original copy of " + CloudTarget.name + " from cloud.");
                     CloudTarget.IsInitInProgress = true;
-
-                    var originalPrototype = Activator.CreateInstance(target.GetType());
-                    InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject((CloudScriptableObject)target,
-                            GetCurrentEnvironment()),
-                            target.GetType(),
-                            (success, obj) =>
+                    GetOriginalResource((CloudScriptableObject)target, (obj) =>
                     {
-                        if (!success)
-                        {
-                            Logger.LogError("An error occured during fetching original from the cloud");
-                        }
-
-                        JsonUtility.FromJsonOverwrite(obj, originalPrototype);
-                        CloudTarget.Original = originalPrototype;
+                        CloudTarget.Original = obj;
                         CloudTarget.IsInitInProgress = false;
                     });
                 }
@@ -212,7 +220,7 @@ namespace Magix.Editor
 
             if (EditorGUI.EndChangeCheck())
             {
-                serializedObject.ApplyModifiedProperties();
+                //serializedObject.ApplyModifiedProperties();
             }
         }
 
@@ -242,6 +250,7 @@ namespace Magix.Editor
                     return false;
                 else if (targetResource.IsExist)
                 {
+                    Debug.Log("B");
                     ReloadResource(targetResource);
                     return true;
                 }
@@ -260,7 +269,7 @@ namespace Magix.Editor
                             ctx++;
                             if (ctx >= MagixConfig.Environments.Length)
                             {
-                                Logger.LogVerbose("Cloud resource deleted successfully");
+                                MagixLogger.LogVerbose("Cloud resource deleted successfully");
                                 targetResource.IsExist = false;
                                 targetResource.IsInit = false;
                                 _repaintRequested = true;
@@ -312,6 +321,7 @@ namespace Magix.Editor
 
             if (productionDropdownChanged)
             {
+                Debug.Log("A");
                 ReloadResource(targetResource);
                 return true;
             }
@@ -376,7 +386,7 @@ namespace Magix.Editor
 
                     if (originalJson != currentJson)
                     {
-                        Logger.LogError("Original and current versions of the resource are not identical. A sync may be required.\n Original: " + originalJson + " \n Current: " + currentJson);
+                        MagixLogger.LogError("Original and current versions of the resource are not identical. A sync may be required.\n Original: " + originalJson + " \n Current: " + currentJson);
                         return;
                     }
 
@@ -390,7 +400,7 @@ namespace Magix.Editor
                         }
                         else
                         {
-                            Logger.LogError("An error occurred while syncing the resource");
+                            MagixLogger.LogError("An error occurred while syncing the resource");
                         }
 
                         targetResource.IsInit = false;
@@ -414,11 +424,11 @@ namespace Magix.Editor
                 {
                     if (!success)
                     {
-                        Logger.LogError("An error occured while uploading resource from cloud");
+                        MagixLogger.LogError("An error occured while uploading resource from cloud");
                         return;
                     }
 
-                    Logger.LogVerbose("Resource successfully uploaded to cloud");
+                    MagixLogger.LogVerbose("Resource successfully uploaded to cloud");
 
                     targetToUpload.IsExist = true;
 
@@ -431,14 +441,16 @@ namespace Magix.Editor
 
         private void GetOriginalResource(CloudScriptableObject targetResource, Action<object> callback)
         {
+            var key = InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment());
+
             var originalPrototype = Activator.CreateInstance(targetResource.GetType());
-            InstanceManager.ResourceAPI.GetVariableCloudJson(InstanceManager.Resolver.GetKeyFromObject(targetResource, GetCurrentEnvironment()),
+            InstanceManager.ResourceAPI.GetVariableCloudJson(key,
                     targetResource.GetType(),
                     (success, objStr) =>
             {
                 if (!success)
                 {
-                    Logger.LogError("An error occured during fetching original from the cloud");
+                    MagixLogger.LogError("An error occured during fetching original from the cloud with key: " + key);
                 }
 
                 JsonUtility.FromJsonOverwrite(objStr, originalPrototype);
@@ -528,9 +540,9 @@ namespace Magix.Editor
                 if (field.FieldType.IsArray || (field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(List<>)))
                 {
                     ReorderableList list = DrawWithReorderableList(property);
-                    serializedObject.Update();
+                    //serializedObject.Update();
                     list.DoLayoutList();
-                    serializedObject.ApplyModifiedProperties();
+                    //serializedObject.ApplyModifiedProperties();
                 }
                 else
                 {
@@ -546,7 +558,7 @@ namespace Magix.Editor
                 }
             }
 
-            serializedObject.ApplyModifiedProperties();
+            //serializedObject.ApplyModifiedProperties();
         }
 
         private void ResetResources()

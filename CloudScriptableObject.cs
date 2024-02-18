@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Magix.Utils;
 using UnityEngine;
+using Magix.Diagnostics;
 
 namespace Magix
 {
@@ -52,13 +53,12 @@ namespace Magix
 
             IsInitInProgress = true;
 
-            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId,
-                    InstanceManager.Resolver.GetKeyFromObject(this, environment), (exist) =>
+            var key = InstanceManager.Resolver.GetKeyFromObject(this, environment);
+            InstanceManager.ResourceAPI.CheckVariableIsExist(InstanceManager.ResourceAPI.EditorUserId, key, (exist) =>
             {
                 IsInit = true;
                 IsInitInProgress = false;
-                IsExist = exist;
-                success.Invoke(IsExist);
+                success.Invoke(exist);
             });
         }
 #endif
